@@ -4,6 +4,7 @@ import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
 import 'edit_item_screen.dart';
 import 'room_detail_sheet.dart';
+import '../../widgets/notification_button.dart';
 
 class RoomManagementScreen extends StatefulWidget {
   const RoomManagementScreen({super.key});
@@ -18,7 +19,7 @@ class _RoomManagementScreenState extends State<RoomManagementScreen>
   bool _isLoading = true;
   String _filterStatus = 'all';
   final TextEditingController _searchController = TextEditingController();
-  static const String baseUrl = 'http://10.0.2.2:3001';
+  static const String baseUrl = ApiService.serverUrl;
 
   final List<Map<String, dynamic>> _filters = [
     {'key': 'all', 'label': 'Tất cả'},
@@ -112,22 +113,28 @@ class _RoomManagementScreenState extends State<RoomManagementScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RentsColors.bgLightBlue,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(child: _buildSearchAndFilter()),
-          if (_isLoading)
-            const SliverFillRemaining(
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: RentsColors.primaryBlue,
-                ),
-              ),
-            )
-          else if (_filteredRooms.isEmpty)
-            SliverFillRemaining(child: _buildEmptyState())
-          else
-            _buildRoomGrid(),
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          _buildSearchAndFilter(),
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                if (_isLoading)
+                  const SliverFillRemaining(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: RentsColors.primaryBlue,
+                      ),
+                    ),
+                  )
+                else if (_filteredRooms.isEmpty)
+                  SliverFillRemaining(child: _buildEmptyState())
+                else
+                  _buildRoomGrid(),
+              ],
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -138,12 +145,12 @@ class _RoomManagementScreenState extends State<RoomManagementScreen>
     );
   }
 
-  Widget _buildSliverAppBar() {
-    return SliverAppBar(
-        centerTitle: true,
-      pinned: true,
-      backgroundColor: Colors.white,
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      centerTitle: true,
+      backgroundColor: RentsColors.bgLightBlue,
       elevation: 0,
+      leading: const NotificationButton(),
       title: const Text(
         'QUẢN LÝ PHÒNG',
         style: TextStyle(
@@ -167,7 +174,7 @@ class _RoomManagementScreenState extends State<RoomManagementScreen>
 
   Widget _buildSearchAndFilter() {
     return Container(
-      color: Colors.white,
+      color: RentsColors.bgLightBlue,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(
         children: [
@@ -178,7 +185,7 @@ class _RoomManagementScreenState extends State<RoomManagementScreen>
               hintStyle: const TextStyle(color: RentsColors.grayMedium, fontSize: 14),
               prefixIcon: const Icon(Icons.search, color: RentsColors.grayDark, size: 20),
               filled: true,
-              fillColor: RentsColors.bgLightBlue,
+              fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
@@ -209,7 +216,7 @@ class _RoomManagementScreenState extends State<RoomManagementScreen>
                     decoration: BoxDecoration(
                       color: isActive
                           ? RentsColors.primaryBlue
-                          : RentsColors.bgLightBlue,
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: isActive
@@ -381,7 +388,7 @@ class _RoomManagementScreenState extends State<RoomManagementScreen>
                     ),
                   const SizedBox(height: 4),
                   const Text(
-                    'TG khả dụng: 09:00 - 21:00',
+                    'TG khả dụng: 9:00 - 21:00',
                     style: TextStyle(
                       color: RentsColors.grayDark,
                       fontSize: 13,

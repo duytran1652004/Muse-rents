@@ -196,7 +196,7 @@ class _SearchScreenState extends State<SearchScreen>
           icon: Icons.event_note,
           title: '${b['room_name'] ?? 'N/A'} - ${b['student_name'] ?? 'N/A'}',
           subtitle:
-              '${_formatDate(b['booking_date'])} | ${b['start_time'] ?? ''} - ${b['end_time'] ?? ''}',
+              '${_formatDate(b['booking_date'])} | ${formatTimeStr(b['start_time'])} - ${formatTimeStr(b['end_time'])}',
           color: RentsColors.accentOrange,
         );
       },

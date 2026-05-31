@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/rents_colors.dart';
+import '../../services/api_service.dart';
 import '../../widgets/decorated_background.dart';
 import 'register_screen.dart';
 import '../admin/admin_shell.dart';
@@ -32,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      const String apiUrl = 'http://10.0.2.2:3001/api/auth/login';
+      final String apiUrl = '${ApiService.baseUrl}/auth/login';
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},

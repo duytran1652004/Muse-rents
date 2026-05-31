@@ -69,6 +69,16 @@ exports.updateStudent = async (req, res) => {
 
 exports.deleteStudent = async (req, res) => {
   try {
+    const [bookings] = await db.query('SELECT id FROM bookings WHERE student_id = ? AND status IN ("pending", "confirmed", "in_progress")', [req.params.id]);
+    if (bookings.length > 0) {
+      return res.status(400).json({ message: 'Không thể xóa học viên đang có lịch tập sắp tới hoặc đang sử dụng.' });
+    }
+    
+    const [enrollments] = await db.query('SELECT id FROM class_enrollments WHERE student_id = ? AND status IN ("active", "confirmed")', [req.params.id]);
+    if (enrollments.length > 0) {
+      return res.status(400).json({ message: 'Không thể xóa học viên đang tham gia khóa học.' });
+    }
+
     await db.query('DELETE FROM students WHERE id = ?', [req.params.id]);
     res.json({ message: 'Student deleted successfully' });
   } catch (err) {

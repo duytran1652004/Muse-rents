@@ -3,7 +3,14 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:3001/api';
+  static const String serverUrl = String.fromEnvironment('SERVER_URL', defaultValue: 'http://10.0.2.2:3001');
+  static const String baseUrl = '$serverUrl/api';
+
+  static String getImageUrl(String? path) {
+    if (path == null || path.isEmpty) return '';
+    if (path.startsWith('http')) return path;
+    return '$serverUrl$path';
+  }
 
   static Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();

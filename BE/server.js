@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const helmet = require('helmet');
+const compression = require('compression');
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
@@ -12,10 +14,13 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const classRoutes = require('./routes/classRoutes');
+const instructorRoutes = require('./routes/instructorRoutes');
 
 const app = express();
 const port = process.env.PORT || 3001;
 
+app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(compression());
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -29,6 +34,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/classes', classRoutes);
+app.use('/api/instructors', instructorRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'MUSE Rents Backend is running' });

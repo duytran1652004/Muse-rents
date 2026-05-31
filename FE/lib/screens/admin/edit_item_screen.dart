@@ -39,7 +39,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
   String _status = 'active';
   bool get _isEditMode => widget.existingData != null;
 
-  static const String baseUrl = 'http://10.0.2.2:3001';
+  static const String baseUrl = ApiService.serverUrl;
 
   @override
   void initState() {
@@ -67,17 +67,16 @@ class _EditItemScreenState extends State<EditItemScreen> {
       _emailController.text = d['email'] ?? '';
       _durationController.text = d['duration'] ?? '';
     }
-    if (widget.type == 'student') {
+    if (widget.type == 'student' || widget.type == 'instructor') {
       if (_isEditMode) {
         String s = widget.existingData!['status'] ?? 'active';
-        if (!['active', 'inactive', 'suspended'].contains(s)) {
-          s = 'active';
-        }
         _status = s;
+      } else {
+        _status = widget.type == 'student' ? 'confirmed' : 'active';
       }
-      _fetchClasses();
-      if (_isEditMode) {
-        _fetchStudentEnrollment();
+      if (widget.type == 'student') {
+        _fetchClasses();
+        if (_isEditMode) _fetchStudentEnrollment();
       }
     }
   }
@@ -162,6 +161,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
       case 'room': return '/api/rooms';
       case 'course': return '/api/courses';
       case 'student': return '/api/students';
+      case 'instructor': return '/api/instructors';
       default: return '/api/rooms';
     }
   }
@@ -172,6 +172,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
       case 'room': return '$action PHÒNG';
       case 'course': return '$action KHÓA HỌC';
       case 'student': return '$action HỌC VIÊN';
+      case 'instructor': return '$action GIÁO VIÊN';
       default: return action;
     }
   }
@@ -236,6 +237,14 @@ class _EditItemScreenState extends State<EditItemScreen> {
             'price': double.tryParse(cleanPrice) ?? 0,
             'duration': _durationController.text,
             'status': 'active',
+          };
+        } else if (widget.type == 'instructor') {
+          body = {
+            'name': _nameController.text,
+            'phone': _phoneController.text,
+            'email': _emailController.text,
+            'bio': _descriptionController.text,
+            'status': _status,
           };
         } else {
           body = {
@@ -341,21 +350,24 @@ class _EditItemScreenState extends State<EditItemScreen> {
                 const SizedBox(height: 15),
                 _buildInput(controller: _descriptionController, label: 'Mô tả khóa học', icon: Icons.description, maxLines: 3),
               ],
-              if (widget.type == 'student') ...[
+              if (widget.type == 'student' || widget.type == 'instructor') ...[
                 _buildInput(controller: _phoneController, label: 'Số điện thoại', icon: Icons.phone, keyboardType: TextInputType.phone, validator: (v) => v!.isEmpty ? 'Nhập SĐT' : null),
                 const SizedBox(height: 15),
                 _buildInput(controller: _emailController, label: 'Email (Tùy chọn)', icon: Icons.email, keyboardType: TextInputType.emailAddress),
                 const SizedBox(height: 15),
-                const Text('TRẠNG THÁI HỌC VIÊN', style: TextStyle(fontWeight: FontWeight.bold, color: RentsColors.primaryBlue, fontSize: 13)),
-                const SizedBox(height: 12),
-                _buildStatusDropdown(),
-                const SizedBox(height: 25),
-                const Text('GÁN KHÓA HỌC (TÙY CHỌN)', style: TextStyle(fontWeight: FontWeight.bold, color: RentsColors.primaryBlue, fontSize: 13)),
-                const SizedBox(height: 12),
-                _buildClassDropdown(),
-                if (_selectedClassIds.isNotEmpty) ...[
+                
+                if (widget.type == 'instructor') ...[
+                  _buildInput(controller: _descriptionController, label: 'Giới thiệu / Kinh nghiệm', icon: Icons.description, maxLines: 3),
+                ],
+
+                if (widget.type == 'student') ...[
+                  const Text('GÁN KHÓA HỌC (TÙY CHỌN)', style: TextStyle(fontWeight: FontWeight.bold, color: RentsColors.primaryBlue, fontSize: 13)),
                   const SizedBox(height: 12),
-                  _buildCourseInfoPreview(),
+                  _buildClassDropdown(),
+                  if (_selectedClassIds.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _buildCourseInfoPreview(),
+                  ],
                 ],
               ],
               const SizedBox(height: 30),
@@ -553,6 +565,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
           isExpanded: true,
           value: _status,
           items: const [
+            DropdownMenuItem(value: 'confirmed', child: Text('Đã xác nhận')),
             DropdownMenuItem(value: 'active', child: Text('Đang học')),
             DropdownMenuItem(value: 'inactive', child: Text('Đã xong')),
             DropdownMenuItem(value: 'suspended', child: Text('Tạm dừng')),

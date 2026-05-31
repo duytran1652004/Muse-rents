@@ -106,6 +106,10 @@ exports.updateRoom = async (req, res) => {
 
 exports.deleteRoom = async (req, res) => {
   try {
+    const [bookings] = await pool.query('SELECT id FROM bookings WHERE room_id = ? LIMIT 1', [req.params.id]);
+    if (bookings.length > 0) {
+      return res.status(400).json({ error: 'Không thể xóa phòng đã có dữ liệu lịch sử đặt. Xin hãy đổi trạng thái phòng sang Đóng cửa.' });
+    }
     await pool.query('DELETE FROM rooms WHERE id = ?', [req.params.id]);
     res.json({ message: 'Room deleted' });
   } catch (err) {

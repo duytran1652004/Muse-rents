@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
 import '../../utils/booking_date_utils.dart';
+import '../../utils/globals.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -33,7 +34,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           _isLoading = false;
         });
         // Mark all as read
-        ApiService.post('/notifications/mark-all-read', {}).catchError((_) => null);
+        () async {
+          try {
+            await ApiService.post('/notifications/mark-all-read', {});
+            fetchGlobalNotifications();
+          } catch (_) {}
+        }();
       } else if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -178,6 +184,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (notif['booking'] != null) {
       return _buildBookingNotifCard(notif);
     }
+    if (notif['class_info'] != null) {
+      return _buildClassNotifCard(notif);
+    }
 
     final isRead = notif['is_read'] == true || notif['is_read'] == 1;
     final type = notif['type'] ?? 'alert';
@@ -301,8 +310,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final statusColor = _getStatusColor(currentStatusStr);
     final statusLabel = _getStatusLabel(currentStatusStr);
     final date = formatBookingDate(booking['booking_date']);
-    final startTime = booking['start_time'] ?? '';
-    final endTime = booking['end_time'] ?? '';
+    final startTime = formatTimeStr(booking['start_time']);
+    final endTime = formatTimeStr(booking['end_time']);
 
     final card = GestureDetector(
       onTap: () {
@@ -369,7 +378,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(14),
                           child: Image.network(
-                            'http://10.0.2.2:3001${booking['room_image_url']}',
+                            ApiService.getImageUrl(booking['room_image_url']),
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(Icons.meeting_room, color: RentsColors.grayDark, size: 24),
                           ),
@@ -420,6 +429,192 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           const Icon(Icons.access_time, size: 14, color: RentsColors.grayDark),
                           const SizedBox(width: 6),
                           Text('$date | $startTime - $endTime', style: const TextStyle(color: RentsColors.grayDark, fontSize: 13)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (_isSelectionMode) {
+      final isSelected = _selectedIds.contains(notif['id']);
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            Checkbox(
+              value: isSelected,
+              activeColor: RentsColors.primaryBlue,
+              onChanged: (val) {
+                setState(() {
+                  if (val == true) _selectedIds.add(notif['id']);
+                  else _selectedIds.remove(notif['id']);
+                });
+              },
+            ),
+            Expanded(child: card),
+          ],
+        ),
+      );
+    }
+
+    return Dismissible(
+      key: ValueKey(notif['id']),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(color: RentsColors.accentRed, borderRadius: BorderRadius.circular(20)),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) => _deleteNotification(notif['id']),
+      child: card,
+    );
+  }
+
+  Widget _buildClassNotifCard(Map<String, dynamic> notif) {
+    final cls = notif['class_info'];
+    final isRead = notif['is_read'] == true || notif['is_read'] == 1;
+    final className = cls['class_name'] ?? 'Lớp học';
+    final instructorName = cls['instructor_name'] ?? 'Chưa xếp giáo viên';
+    
+    final statusLabel = _getClassStatus(cls);
+    final statusColor = _getClassStatusColor(statusLabel);
+    
+    final schedulesStr = _formatClassSchedules(cls);
+
+    final card = GestureDetector(
+      onTap: () {
+        if (_isSelectionMode) {
+          setState(() {
+            if (_selectedIds.contains(notif['id'])) _selectedIds.remove(notif['id']);
+            else _selectedIds.add(notif['id']);
+          });
+        } else {
+          setState(() {
+            notif['is_read'] = 1;
+          });
+          _showClassDetailSheet(cls);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isRead ? Colors.white : RentsColors.primaryBlue.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isRead ? Colors.transparent : RentsColors.primaryBlue.withValues(alpha: 0.2)),
+          boxShadow: RentsColors.softCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.school, size: 16, color: RentsColors.primaryBlue),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    notif['message'] ?? '',
+                    style: const TextStyle(color: RentsColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+                Text(_formatDate(notif['created_at']), style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.bold)),
+                if (!isRead) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(color: RentsColors.primaryBlue, shape: BoxShape.circle),
+                  ),
+                ]
+              ],
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, color: RentsColors.grayLight),
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: RentsColors.bgLightBlue,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: cls['course_image_url'] != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.network(
+                            ApiService.getImageUrl(cls['course_image_url']),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.school, color: RentsColors.grayDark, size: 24),
+                          ),
+                        )
+                      : const Icon(Icons.school, color: RentsColors.grayDark, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              className,
+                              style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 15),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline, size: 14, color: RentsColors.grayDark),
+                          const SizedBox(width: 6),
+                          Text(instructorName, style: const TextStyle(color: RentsColors.grayDark, fontSize: 13)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 2),
+                            child: Icon(Icons.access_time, size: 14, color: RentsColors.grayDark),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              schedulesStr,
+                              style: const TextStyle(color: RentsColors.grayDark, fontSize: 13),
+                              maxLines: 2,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -541,8 +736,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final customerName = booking['display_name'] ?? booking['student_name'] ?? booking['guest_name'] ?? 'Khách';
     final roomName = booking['room_name'] ?? 'Phòng';
     final date = formatBookingDate(booking['booking_date']);
-    final startTime = booking['start_time'] ?? '';
-    final endTime = booking['end_time'] ?? '';
+    final startTime = formatTimeStr(booking['start_time']);
+    final endTime = formatTimeStr(booking['end_time']);
     final statusColor = _getStatusColor(booking['status']);
     final statusLabel = _getStatusLabel(booking['status']);
     final imageUrl = booking['room_image_url'];
@@ -579,7 +774,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: Image.network(
-                          'http://10.0.2.2:3001$imageUrl',
+                          ApiService.getImageUrl(imageUrl),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
                         ),
@@ -678,6 +873,244 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
               const SizedBox(height: 24),
 
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _getClassStatus(Map<String, dynamic> cls) {
+    if (cls['status'] == 'completed') return 'Hoàn thành';
+    if (cls['status'] == 'cancelled') return 'Tạm dừng';
+    
+    final now = DateTime.now();
+    final today = _getVietnameseDayName(now.weekday);
+    final currentTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final soonTimeStr = '${now.add(const Duration(minutes: 30)).hour.toString().padLeft(2, '0')}:${now.add(const Duration(minutes: 30)).minute.toString().padLeft(2, '0')}';
+
+    bool isHappeningNow = false;
+    bool isSoon = false;
+
+    void checkSchedule(String? day, String? start, String? end) {
+      if (day == null || start == null || end == null) return;
+      if (day != today) return;
+      
+      final sTime = start.substring(0, 5);
+      final eTime = end.substring(0, 5);
+
+      if (currentTime.compareTo(sTime) >= 0 && currentTime.compareTo(eTime) <= 0) {
+        isHappeningNow = true;
+      } else if (currentTime.compareTo(sTime) < 0 && soonTimeStr.compareTo(sTime) >= 0) {
+        isSoon = true;
+      }
+    }
+
+    checkSchedule(cls['day_of_week'], cls['start_time'], cls['end_time']);
+    checkSchedule(cls['day_of_week_2'], cls['start_time_2'], cls['end_time_2']);
+    checkSchedule(cls['day_of_week_3'], cls['start_time_3'], cls['end_time_3']);
+
+    if (isHappeningNow) return 'Đang diễn ra';
+    if (isSoon) return 'Sắp tới giờ học';
+    return 'Đang học';
+  }
+
+  Color _getClassStatusColor(String statusLabel) {
+    if (statusLabel == 'Đang diễn ra' || statusLabel == 'Sắp tới giờ học') return RentsColors.primaryBlue;
+    if (statusLabel == 'Đang học') return RentsColors.accentGreen;
+    if (statusLabel == 'Hoàn thành') return RentsColors.primaryBlue;
+    return RentsColors.accentOrange;
+  }
+
+  String _getVietnameseDayName(int weekday) {
+    switch (weekday) {
+      case 1: return 'Thứ 2';
+      case 2: return 'Thứ 3';
+      case 3: return 'Thứ 4';
+      case 4: return 'Thứ 5';
+      case 5: return 'Thứ 6';
+      case 6: return 'Thứ 7';
+      case 7: return 'Chủ Nhật';
+      default: return '';
+    }
+  }
+
+  String _formatClassSchedules(Map<String, dynamic> cls) {
+    List<String> schedules = [];
+    void addSchedule(String? day, String? start, String? end) {
+      if (day != null && start != null && end != null) {
+        schedules.add('$day (${start.substring(0, 5)} - ${end.substring(0, 5)})');
+      }
+    }
+    addSchedule(cls['day_of_week'], cls['start_time'], cls['end_time']);
+    addSchedule(cls['day_of_week_2'], cls['start_time_2'], cls['end_time_2']);
+    addSchedule(cls['day_of_week_3'], cls['start_time_3'], cls['end_time_3']);
+    return schedules.join(', ');
+  }
+
+  void _showClassDetailSheet(Map<String, dynamic> cls) {
+    final className = cls['class_name'] ?? 'Lớp học';
+    final instructorName = cls['instructor_name'] ?? 'Chưa xếp giáo viên';
+    final schedulesStr = _formatClassSchedules(cls);
+    final statusLabel = _getClassStatus(cls);
+    final statusColor = _getClassStatusColor(statusLabel);
+    final completed = cls['completed_sessions'] ?? 0;
+    final total = cls['total_sessions'] ?? 0;
+    final imageUrl = cls['course_image_url'];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(color: RentsColors.grayMedium, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              Container(
+                width: double.infinity,
+                height: 180,
+                decoration: BoxDecoration(color: RentsColors.bgGray, borderRadius: BorderRadius.circular(16)),
+                child: imageUrl != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          ApiService.getImageUrl(imageUrl),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
+                        ),
+                      )
+                    : _buildPlaceholderImage(),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      className,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: RentsColors.black),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: RentsColors.primaryBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline, size: 14, color: RentsColors.primaryBlue),
+                        const SizedBox(width: 6),
+                        Text(instructorName, style: const TextStyle(color: RentsColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 14, color: statusColor),
+                        const SizedBox(width: 6),
+                        Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: RentsColors.bgLightBlue, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: RentsColors.primaryBlue.withValues(alpha: 0.15), shape: BoxShape.circle),
+                          child: const Icon(Icons.access_time_filled, color: RentsColors.primaryBlue, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Thời gian', style: TextStyle(color: RentsColors.grayDark, fontSize: 12)),
+                              const SizedBox(height: 2),
+                              Text(schedulesStr, style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: RentsColors.grayLight)),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: RentsColors.accentGreen.withValues(alpha: 0.15), shape: BoxShape.circle),
+                          child: const Icon(Icons.check_circle, color: RentsColors.accentGreen, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Tiến độ', style: TextStyle(color: RentsColors.grayDark, fontSize: 12)),
+                              const SizedBox(height: 2),
+                              Text('$completed / $total buổi', style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (cls['student_names'] != null) ...[
+                      const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: RentsColors.grayLight)),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: RentsColors.primaryBlue.withValues(alpha: 0.15), shape: BoxShape.circle),
+                            child: const Icon(Icons.group, color: RentsColors.primaryBlue, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Học viên', style: TextStyle(color: RentsColors.grayDark, fontSize: 12)),
+                                const SizedBox(height: 2),
+                                Text(cls['student_names'].toString(), style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 14)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         );

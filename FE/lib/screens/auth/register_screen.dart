@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../theme/rents_colors.dart';
+import '../../services/api_service.dart';
 import '../../widgets/decorated_background.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -29,7 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      const String apiUrl = 'http://10.0.2.2:3001/api/auth/register';
+      final String apiUrl = '${ApiService.baseUrl}/auth/register';
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},

@@ -97,6 +97,91 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
     }
   }
 
+  Future<void> _updateStatus(String newStatus) async {
+    try {
+      final res = await ApiService.put('/students/${_studentData['id']}', {
+        'status': newStatus,
+        'name': _studentData['name'],
+        'phone': _studentData['phone'],
+        'email': _studentData['email'],
+      });
+      if (res.statusCode == 200 && mounted) {
+        setState(() => _studentData['status'] = newStatus);
+      }
+    } catch (_) {}
+  }
+
+  void _showStatusPicker() {
+    Widget buildStatusButton(String status) {
+      final isSuspended = status == 'suspended';
+      final color = _statusColor(status);
+      return Expanded(
+        child: GestureDetector(
+          onTap: () {
+            Navigator.pop(context);
+            _updateStatus(status);
+          },
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: isSuspended ? Colors.white : color,
+              borderRadius: BorderRadius.circular(12),
+              border: isSuspended ? Border.all(color: color) : null,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              _statusLabel(status),
+              style: TextStyle(
+                color: isSuspended ? color : Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 20),
+              child: Text(
+                'CẬP NHẬT TRẠNG THÁI',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: RentsColors.primaryBlue),
+              ),
+            ),
+            Row(
+              children: [
+                buildStatusButton('confirmed'),
+                const SizedBox(width: 12),
+                buildStatusButton('active'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                buildStatusButton('inactive'),
+                const SizedBox(width: 12),
+                buildStatusButton('suspended'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final String name = (_studentData['name'] ?? 'Không tên').toString();
@@ -194,19 +279,29 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _statusColor(_studentData['status']).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _statusLabel(_studentData['status']),
-                      style: TextStyle(
-                        color: _statusColor(_studentData['status']),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
+                  GestureDetector(
+                    onTap: _showStatusPicker,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _statusColor(_studentData['status']).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _statusLabel(_studentData['status']),
+                            style: TextStyle(
+                              color: _statusColor(_studentData['status']),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.edit_rounded, size: 12, color: _statusColor(_studentData['status'])),
+                        ],
                       ),
                     ),
                   ),
@@ -294,15 +389,18 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
 
   Widget _buildEnrollmentCard(Map<String, dynamic> enrollment) {
     final String status = enrollment['status'] ?? 'active';
-    final String statusText = status == 'confirmed' ? 'Đã xác nhận' : status == 'active' ? 'Đang học' : status == 'completed' ? 'Hoàn thành' : 'Đã hủy';
-    final Color badgeColor = status == 'confirmed' ? RentsColors.accentOrange : status == 'active' ? RentsColors.accentGreen : status == 'completed' ? RentsColors.primaryBlue : RentsColors.accentRed;
+    final int completed = enrollment['completed_sessions'] ?? 0;
+    final int total = enrollment['total_sessions'] ?? 0;
+    
+    final bool isCompleted = status == 'completed' || (total > 0 && completed >= total);
+    
+    final String statusText = isCompleted ? 'Hoàn thành' : status == 'confirmed' ? 'Đã xác nhận' : status == 'active' ? 'Đang học' : 'Đã hủy';
+    final Color badgeColor = isCompleted ? RentsColors.primaryBlue : status == 'confirmed' ? RentsColors.accentOrange : status == 'active' ? RentsColors.accentGreen : RentsColors.accentRed;
 
-    return GestureDetector(
-      onTap: () => _showEnrollmentDetail(enrollment),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
@@ -325,7 +423,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: Image.network(
-                            'http://10.0.2.2:3001${enrollment['course_image_url']}',
+                            ApiService.getImageUrl(enrollment['course_image_url']),
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) => Icon(
                               Icons.school_outlined,
@@ -365,190 +463,90 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: RentsColors.accentRed, size: 20),
-                  onPressed: () => _deleteEnrollment(enrollment['id']),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
+                if (status != 'completed')
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: RentsColors.accentRed, size: 20),
+                    onPressed: () => _deleteEnrollment(enrollment['id']),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
               ],
             ),
             const Divider(height: 16, thickness: 0.5),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (enrollment['day_of_week'] != null)
-                  Expanded(
-                    child: Row(
-                      children: [
-                        const Icon(Icons.access_time, size: 12, color: RentsColors.grayDark),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${enrollment['day_of_week']} | ${enrollment['start_time'] ?? ''}',
-                          style: const TextStyle(color: RentsColors.grayDark, fontSize: 11, fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (enrollment['day_of_week'] != null)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.access_time, size: 14, color: RentsColors.grayDark),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _formatClassSchedules(enrollment),
+                                style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                if (enrollment['instructor_name'] != null)
-                  Expanded(
-                    child: Row(
-                      children: [
-                        const Icon(Icons.person_outline, size: 12, color: RentsColors.grayDark),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            'GV: ${enrollment['instructor_name']}',
-                            style: const TextStyle(color: RentsColors.grayDark, fontSize: 11, fontWeight: FontWeight.w500),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      const SizedBox(height: 6),
+                      if (enrollment['instructor_name'] != null)
+                        Row(
+                          children: [
+                            const Icon(Icons.person_outline, size: 14, color: RentsColors.grayDark),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'GV: ${enrollment['instructor_name']}',
+                                style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                if (enrollment['enrollment_date'] != null && enrollment['day_of_week'] == null)
-                  Expanded(
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_today_outlined, size: 12, color: RentsColors.grayDark),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Từ: ${_formatDate(enrollment['enrollment_date'])}',
-                          style: const TextStyle(color: RentsColors.grayDark, fontSize: 11),
+                      const SizedBox(height: 6),
+                      if (enrollment['total_sessions'] != null && enrollment['total_sessions'] > 0)
+                        Row(
+                          children: [
+                            const Icon(Icons.check_circle_outline, size: 14, color: RentsColors.grayDark),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Số buổi: ${enrollment['completed_sessions'] ?? 0}/${enrollment['total_sessions']}',
+                              style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                    ],
                   ),
+                ),
               ],
             ),
           ],
-        ),
       ),
     );
   }
 
-  void _showEnrollmentDetail(Map<String, dynamic> enrollment) {
-    final start = enrollment['enrollment_date'] != null ? _formatDate(enrollment['enrollment_date']) : 'Chưa rõ';
-    final end = enrollment['end_date'] != null ? _formatDate(enrollment['end_date']) : 'Chưa rõ';
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        String currentStatus = enrollment['status'] ?? 'active';
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 20),
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(color: RentsColors.grayMedium, borderRadius: BorderRadius.circular(2)),
-                      ),
-                    ),
-                    Text(
-                      (enrollment['class_name'] ?? enrollment['course_name'] ?? 'Khóa học').toString().toUpperCase(),
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: RentsColors.primaryBlue),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today, size: 16, color: RentsColors.grayDark),
-                        const SizedBox(width: 8),
-                        Text('Ngày bắt đầu: $start', style: const TextStyle(color: RentsColors.black, fontSize: 14)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Icon(Icons.event_available, size: 16, color: RentsColors.grayDark),
-                        const SizedBox(width: 8),
-                        Text('Ngày kết thúc: $end', style: const TextStyle(color: RentsColors.black, fontSize: 14)),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    const Text('TRẠNG THÁI HỌC VIÊN', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: RentsColors.grayDark)),
-                    const SizedBox(height: 12),
-                    Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: _enrollmentStatusToggle('confirmed', 'Đã xác nhận', RentsColors.accentOrange, currentStatus, (val) => setSheetState(() => currentStatus = val))),
-                            const SizedBox(width: 8),
-                            Expanded(child: _enrollmentStatusToggle('active', 'Đang học', RentsColors.accentGreen, currentStatus, (val) => setSheetState(() => currentStatus = val))),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(child: _enrollmentStatusToggle('completed', 'Hoàn thành', RentsColors.primaryBlue, currentStatus, (val) => setSheetState(() => currentStatus = val))),
-                            const SizedBox(width: 8),
-                            Expanded(child: _enrollmentStatusToggle('dropped', 'Đã hủy', RentsColors.accentRed, currentStatus, (val) => setSheetState(() => currentStatus = val))),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await ApiService.put('/enrollments/${enrollment['id']}', {'status': currentStatus});
-                          _fetchHistory();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: RentsColors.primaryBlue,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: const Text('CẬP NHẬT TRẠNG THÁI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-        );
+  String _formatClassSchedules(Map<String, dynamic> cls) {
+    List<String> schedules = [];
+    void addSchedule(String? day, String? start, String? end) {
+      if (day != null && start != null && end != null) {
+        schedules.add('$day (${formatTimeStr(start)} - ${formatTimeStr(end)})');
       }
-    );
+    }
+    addSchedule(cls['day_of_week'], cls['start_time'], cls['end_time']);
+    addSchedule(cls['day_of_week_2'], cls['start_time_2'], cls['end_time_2']);
+    addSchedule(cls['day_of_week_3'], cls['start_time_3'], cls['end_time_3']);
+    return schedules.join('\n');
   }
 
-  Widget _enrollmentStatusToggle(String value, String label, Color color, String currentValue, Function(String) onChanged) {
-    final isSelected = currentValue == value;
-    return GestureDetector(
-      onTap: () => onChanged(value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
-          border: Border.all(color: isSelected ? color : RentsColors.grayLight),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? color : RentsColors.grayDark,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            fontSize: 12,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _infoCard(String title, List<Widget> rows) {
     return Container(
@@ -683,7 +681,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                     const Icon(Icons.access_time, size: 12, color: RentsColors.grayDark),
                     const SizedBox(width: 4),
                     Text(
-                      '${_formatDate(booking['booking_date'])} | ${booking['start_time'] ?? ''}',
+                      '${_formatDate(booking['booking_date'])} | ${formatTimeStr(booking['start_time'])}',
                       style: const TextStyle(
                         color: RentsColors.grayDark,
                         fontSize: 12,
@@ -692,6 +690,26 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                     ),
                   ],
                 ),
+                if (booking['created_by_name'] != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.admin_panel_settings, size: 12, color: RentsColors.grayDark),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Người tạo: ${booking['created_by_name']}',
+                          style: const TextStyle(
+                            color: RentsColors.grayDark,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -843,7 +861,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                         _buildPreviewRow(
                           Icons.access_time,
                           'Thời gian',
-                          '${selectedClass!['start_time'] ?? ''} - ${selectedClass!['end_time'] ?? ''}',
+                          '${formatTimeStr(selectedClass!['start_time'])} - ${formatTimeStr(selectedClass!['end_time'])}',
                         ),
                         const Divider(height: 24, thickness: 0.8),
                         _buildPreviewRow(
@@ -1010,6 +1028,8 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
 
   Color _statusColor(String? status) {
     switch (status) {
+      case 'confirmed':
+        return RentsColors.accentOrange;
       case 'active':
         return RentsColors.accentGreen;
       case 'inactive':
@@ -1023,6 +1043,8 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
 
   String _statusLabel(String? status) {
     switch (status) {
+      case 'confirmed':
+        return 'Đã xác nhận';
       case 'active':
         return 'Đang học';
       case 'inactive':

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../theme/rents_colors.dart';
+import 'dart:async';
+import 'dart:convert';
+import '../../services/api_service.dart';
+import '../../utils/globals.dart';
 import 'schedule_screen.dart';
 import 'room_management_screen.dart';
 import 'student_management_screen.dart';
@@ -16,29 +20,93 @@ class AdminShell extends StatefulWidget {
 class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _fabAnimController;
+  late final List<Widget> _screens = [
+    const ScheduleScreen(),
+    const RoomManagementScreen(),
+    const StudentManagementScreen(),
+    const CourseManagementScreen(),
+    SettingsScreen(onNavigate: (i) => setState(() => _selectedIndex = i)),
+  ];
 
-  Widget _getScreen(int index) {
-    switch (index) {
-      case 0: return const ScheduleScreen();
-      case 1: return const RoomManagementScreen();
-      case 2: return const StudentManagementScreen();
-      case 3: return const CourseManagementScreen();
-      case 4: return SettingsScreen(onNavigate: (i) => setState(() => _selectedIndex = i));
-      default: return const ScheduleScreen();
-    }
-  }
+  int _lastUnreadCount = 0;
 
   @override
   void initState() {
     super.initState();
     _fabAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 200),
     );
+    fetchGlobalNotifications(isInit: true); // Lấy lần đầu
+
+    latestNotification.addListener(_onLatestNotificationChanged);
+  }
+
+  void _onLatestNotificationChanged() {
+    final notif = latestNotification.value;
+    if (notif != null) {
+      _showNotificationPopup(notif);
+    }
+  }
+
+  void _showNotificationPopup(Map<String, dynamic> notif) {
+    if (!mounted) return;
+    final message = notif['message'] ?? 'Bạn có thông báo mới';
+    
+    OverlayEntry? overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).padding.top + 10,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: -100.0, end: 0.0),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(0, value),
+                child: child,
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: RentsColors.primaryBlue,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.notifications_active, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(overlayEntry);
+    Future.delayed(const Duration(seconds: 4), () {
+      overlayEntry?.remove();
+    });
   }
 
   @override
   void dispose() {
+    latestNotification.removeListener(_onLatestNotificationChanged);
     _fabAnimController.dispose();
     super.dispose();
   }
@@ -46,61 +114,41 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: false,
       backgroundColor: RentsColors.bgLightBlue,
-      body: _getScreen(_selectedIndex),
+      body: _screens[_selectedIndex],
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
   Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: RentsColors.bgLightBlue,
-        boxShadow: [
-          BoxShadow(
-            color: RentsColors.primaryBlue.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(
-                0,
-                Icons.calendar_month_rounded,
-                Icons.calendar_month,
-                'Lịch tập',
-              ),
-              _buildNavItem(
-                1,
-                Icons.meeting_room_rounded,
-                Icons.meeting_room_outlined,
-                'Phòng',
-              ),
-              _buildNavItem(
-                2,
-                Icons.people_rounded,
-                Icons.people_outline_rounded,
-                'Học viên',
-              ),
-              _buildNavItem(
-                3,
-                Icons.school_rounded,
-                Icons.school_outlined,
-                'Khóa học',
-              ),
-              _buildNavItem(
-                4,
-                Icons.settings_rounded,
-                Icons.settings_outlined,
-                'Cài đặt',
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: RentsColors.primaryBlue.withValues(alpha: 0.1),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(0, Icons.calendar_month_rounded, Icons.calendar_month, 'Lịch tập'),
+                _buildNavItem(1, Icons.meeting_room_rounded, Icons.meeting_room_outlined, 'Phòng'),
+                _buildNavItem(2, Icons.people_rounded, Icons.people_outline_rounded, 'Học viên'),
+                _buildNavItem(3, Icons.school_rounded, Icons.school_outlined, 'Khóa học'),
+                _buildNavItem(4, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
+              ],
+            ),
           ),
         ),
       ),
@@ -111,80 +159,41 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
     int index,
     IconData selectedIcon,
     IconData unselectedIcon,
-    String label, {
-    bool isPrimary = false,
-  }) {
+    String label,
+  ) {
     final isSelected = _selectedIndex == index;
-
-    if (isPrimary) {
-      return GestureDetector(
-        onTap: () => setState(() => _selectedIndex = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-            gradient: isSelected ? RentsColors.primaryGradient : null,
-            color: isSelected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: isSelected ? RentsColors.cardShadow : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isSelected ? selectedIcon : unselectedIcon,
-                color: isSelected ? Colors.white : RentsColors.grayDark,
-                size: 22,
-              ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                child: isSelected
-                    ? Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(
-                          label,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
     return GestureDetector(
       onTap: () => setState(() => _selectedIndex = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: isSelected ? RentsColors.primaryGradient : null,
+          color: isSelected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isSelected ? RentsColors.cardShadow : null,
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isSelected ? selectedIcon : unselectedIcon,
-              color: isSelected
-                  ? RentsColors.primaryBlue
-                  : RentsColors.grayDark,
-              size: 24,
+              color: isSelected ? Colors.white : RentsColors.grayDark,
+              size: 22,
             ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected
-                    ? RentsColors.primaryBlue
-                    : RentsColors.grayDark,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            if (isSelected)
+              Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
               ),
-            ),
           ],
         ),
       ),

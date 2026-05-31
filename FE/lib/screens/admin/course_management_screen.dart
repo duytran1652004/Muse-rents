@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../theme/rents_colors.dart';
 import 'edit_item_screen.dart';
 import 'course_detail_sheet.dart';
+import '../../widgets/notification_button.dart';
 
 class CourseManagementScreen extends StatefulWidget {
   const CourseManagementScreen({super.key});
@@ -15,7 +16,7 @@ class CourseManagementScreen extends StatefulWidget {
 }
 
 class _CourseManagementScreenState extends State<CourseManagementScreen> {
-  static const String baseUrl = 'http://10.0.2.2:3001';
+  static const String baseUrl = ApiService.serverUrl;
 
   final List<Map<String, String>> _filters = const [
     {'key': 'all', 'label': 'Tất cả'},
@@ -116,22 +117,28 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RentsColors.bgLightBlue,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(child: _buildSearchAndFilter()),
-          if (_isLoading)
-            const SliverFillRemaining(
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: RentsColors.primaryBlue,
-                ),
-              ),
-            )
-          else if (_filteredCourses.isEmpty)
-            SliverFillRemaining(child: _buildEmptyState())
-          else
-            _buildCourseGrid(),
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          _buildSearchAndFilter(),
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                if (_isLoading)
+                  const SliverFillRemaining(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: RentsColors.primaryBlue,
+                      ),
+                    ),
+                  )
+                else if (_filteredCourses.isEmpty)
+                  SliverFillRemaining(child: _buildEmptyState())
+                else
+                  _buildCourseGrid(),
+              ],
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -142,12 +149,12 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
     );
   }
 
-  Widget _buildSliverAppBar() {
-    return SliverAppBar(
-        centerTitle: true,
-      pinned: true,
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      centerTitle: true,
       backgroundColor: RentsColors.bgLightBlue,
       elevation: 0,
+      leading: const NotificationButton(),
       title: const Text(
         'QUẢN LÝ KHÓA HỌC',
         style: TextStyle(

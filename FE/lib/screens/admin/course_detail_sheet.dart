@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
+import '../../utils/booking_date_utils.dart';
 
 class CourseDetailSheet extends StatefulWidget {
   final Map<String, dynamic> course;
@@ -354,7 +355,7 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
                   ),
                 ),
                 Text(
-                  '${_translateDay(cls['day_of_week'])} | ${cls['start_time']?.toString().substring(0, 5) ?? ''} - ${cls['end_time']?.toString().substring(0, 5) ?? ''}',
+                  '${_translateDay(cls['day_of_week'])} | ${formatTimeStr(cls['start_time'])} - ${formatTimeStr(cls['end_time'])}',
                   style: const TextStyle(
                     color: RentsColors.grayDark,
                     fontSize: 12,

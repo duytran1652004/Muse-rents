@@ -18,11 +18,11 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
   final _discountController = TextEditingController();
   final _notesController = TextEditingController();
   final _guestNameController = TextEditingController();
-  final _guestPhoneController = TextEditingController();
 
   List<dynamic> _rooms = [];
   List<dynamic> _students = [];
   List<dynamic> _allBookings = [];
+  List<dynamic> _allEnrollments = [];
 
   String? _selectedRoomId;
   String? _selectedStudentId;
@@ -61,7 +61,26 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
 
   double get _durationHours => _durationMinutes / 60;
 
-  double get _basePrice => _roomRate * _durationHours;
+  bool _isStudentEnrolled(String studentId) {
+    for (final e in _allEnrollments) {
+      if (e['student_id']?.toString() == studentId) {
+        final status = e['status'];
+        if (status == 'active' || status == 'confirmed') {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  double get _basePrice {
+    if (!_isGuestBooking && _selectedStudentId != null) {
+      if (_isStudentEnrolled(_selectedStudentId!)) {
+        return 0;
+      }
+    }
+    return _roomRate * _durationHours;
+  }
 
   double get _discountInputValue =>
       double.tryParse(_discountController.text.trim()) ?? 0;
@@ -94,7 +113,6 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
         _selectedStudentId = b['student_id']?.toString();
       } else {
         _guestNameController.text = b['guest_name'] ?? '';
-        _guestPhoneController.text = b['guest_phone'] ?? '';
       }
       if (b['booking_date'] != null) {
         try {
@@ -125,7 +143,6 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
     _discountController.dispose();
     _notesController.dispose();
     _guestNameController.dispose();
-    _guestPhoneController.dispose();
     super.dispose();
   }
 
@@ -134,6 +151,7 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
       final roomsRes = await ApiService.get('/rooms');
       final studentsRes = await ApiService.get('/students');
       final bookingsRes = await ApiService.get('/bookings');
+      final enrollmentsRes = await ApiService.get('/enrollments');
 
       if (roomsRes.statusCode == 200 &&
           studentsRes.statusCode == 200 &&
@@ -143,10 +161,14 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
         final bookings = bookingsRes.statusCode == 200
             ? json.decode(bookingsRes.body) as List<dynamic>
             : [];
+        final enrollments = enrollmentsRes.statusCode == 200
+            ? json.decode(enrollmentsRes.body) as List<dynamic>
+            : [];
         setState(() {
           _rooms = rooms;
           _students = students;
           _allBookings = bookings;
+          _allEnrollments = enrollments;
           
           final availableRooms = _getAvailableRooms();
           if (widget.bookingToEdit == null) {
@@ -289,9 +311,7 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
         'student_id': _isGuestBooking ? null : int.parse(_selectedStudentId!),
         'customer_type': _customerType,
         'guest_name': _isGuestBooking ? _guestNameController.text.trim() : null,
-        'guest_phone': _isGuestBooking
-            ? _guestPhoneController.text.trim()
-            : null,
+        'guest_phone': null,
         'booking_date':
             '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
         'start_time':
@@ -444,12 +464,6 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
                   },
                   decoration: _inputDecoration('Tên khách'),
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _guestPhoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: _inputDecoration('Số điện thoại khách (nếu có)'),
-                ),
               ],
               const SizedBox(height: 20),
               const Text(
@@ -594,6 +608,13 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
               _buildSummaryRow('Thời lượng', _formatDuration(_durationMinutes)),
               const SizedBox(height: 10),
               _buildSummaryRow('Tạm tính', _formatCurrency(_basePrice)),
+              if (!_isGuestBooking && _selectedStudentId != null && _isStudentEnrolled(_selectedStudentId!)) ...[
+                const SizedBox(height: 4),
+                const Text(
+                  '(Học viên đang học - Miễn phí)',
+                  style: TextStyle(color: RentsColors.accentGreen, fontSize: 13, fontStyle: FontStyle.italic),
+                ),
+              ],
               const SizedBox(height: 16),
               const Text(
                 'Discount',

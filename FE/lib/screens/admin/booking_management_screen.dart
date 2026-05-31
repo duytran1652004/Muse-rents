@@ -87,7 +87,7 @@ class _BookingManagementScreenState extends State<BookingManagementScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      'Khách: ${booking['display_name'] ?? booking['student_name'] ?? 'N/A'}\nNgày: ${formatBookingDate(booking['booking_date'])} (${booking['start_time']} - ${booking['end_time']})',
+                      'Khách: ${booking['display_name'] ?? booking['student_name'] ?? 'N/A'}\nNgày: ${formatBookingDate(booking['booking_date'])} (${formatTimeStr(booking['start_time'])} - ${formatTimeStr(booking['end_time'])})${booking['created_by_name'] != null ? '\nNgười tạo: ${booking['created_by_name']}' : ''}',
                     ),
                     isThreeLine: true,
                     trailing: Container(

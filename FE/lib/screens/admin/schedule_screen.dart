@@ -5,8 +5,12 @@ import 'dart:convert';
 import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
 import '../../utils/booking_date_utils.dart';
+import '../../utils/globals.dart';
+import '../../widgets/notification_button.dart';
 import 'create_booking_screen.dart';
 import 'notifications_screen.dart';
+import 'edit_class_screen.dart';
+import 'package:intl/intl.dart';
 
 class CurrencyInputFormatter extends TextInputFormatter {
   @override
@@ -19,7 +23,7 @@ class CurrencyInputFormatter extends TextInputFormatter {
     int? value = int.tryParse(cleanText);
     if (value == null) return oldValue;
     String newText = cleanText.replaceAllMapped(
-      RegExp(r'(\\d{1,3})(?=(\\d{3})+(?!\\d))'),
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]},',
     );
     return newValue.copyWith(
@@ -36,12 +40,12 @@ class ScheduleScreen extends StatefulWidget {
   State<ScheduleScreen> createState() => _ScheduleScreenState();
 }
 
-class _ScheduleScreenState extends State<ScheduleScreen> {
+class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   List<dynamic> _bookings = [];
+  List<dynamic> _classesList = [];
   bool _isLoading = true;
-  Timer? _notificationTimer;
-  int _unreadCount = 0;
-  int? _lastNotificationId;
+  bool _isLoadingClasses = true;
 
   // Search and Filter States
   final TextEditingController _searchController = TextEditingController();
@@ -56,9 +60,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) setState(() {});
+    });
     _fetchBookings();
-    _checkNewNotifications(isInit: true);
-    _notificationTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkNewNotifications());
+    _fetchClasses();
     _searchController.addListener(() {
       setState(() {});
     });
@@ -66,7 +73,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   @override
   void dispose() {
-    _notificationTimer?.cancel();
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -80,6 +87,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           _bookings = json.decode(response.body);
           _isLoading = false;
         });
+        fetchGlobalNotifications();
       } else if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -88,18 +96,22 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }
   }
 
-  Future<void> _checkNewNotifications({bool isInit = false}) async {
-    if (!mounted) return;
+  Future<void> _fetchClasses() async {
+    setState(() => _isLoadingClasses = true);
     try {
-      final res = await ApiService.get('/notifications/unread-count');
-      if (res.statusCode == 200 && mounted) {
-        final data = json.decode(res.body);
-        int unread = data['count'] ?? 0;
-        if (_unreadCount != unread) {
-          setState(() => _unreadCount = unread);
-        }
+      final response = await ApiService.get('/classes');
+      if (response.statusCode == 200 && mounted) {
+        setState(() {
+          _classesList = json.decode(response.body);
+          _isLoadingClasses = false;
+        });
+        fetchGlobalNotifications();
+      } else if (mounted) {
+        setState(() => _isLoadingClasses = false);
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingClasses = false);
+    }
   }
 
   List<dynamic> get _filteredBookings {
@@ -656,8 +668,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         'Khách';
     final roomName = booking['room_name'] ?? 'Phòng';
     final date = formatBookingDate(booking['booking_date']);
-    final startTime = booking['start_time'] ?? '';
-    final endTime = booking['end_time'] ?? '';
+    final startTime = formatTimeStr(booking['start_time']);
+    final endTime = formatTimeStr(booking['end_time']);
     final statusColor = _getStatusColor(booking['status']);
     final statusLabel = _getStatusLabel(booking['status']);
     final imageUrl = booking['room_image_url'];
@@ -707,7 +719,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: Image.network(
-                          'http://10.0.2.2:3001$imageUrl',
+                          ApiService.getImageUrl(imageUrl),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) =>
                               _buildPlaceholderImage(),
@@ -730,24 +742,26 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: () async {
-                      Navigator.pop(context);
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              CreateBookingScreen(bookingToEdit: booking),
-                        ),
-                      );
-                      if (result == true) _fetchBookings();
-                    },
-                    child: const Icon(
-                      Icons.edit,
-                      color: RentsColors.primaryBlue,
+                  if (booking['status'] == 'confirmed' || booking['status'] == 'pending') ...[
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                CreateBookingScreen(bookingToEdit: booking),
+                          ),
+                        );
+                        if (result == true) _fetchBookings();
+                      },
+                      child: const Icon(
+                        Icons.edit,
+                        color: RentsColors.primaryBlue,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
               const SizedBox(height: 16),
@@ -907,6 +921,54 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         ),
                       ],
                     ),
+                    if (booking['created_by_name'] != null) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Divider(height: 1, color: RentsColors.grayLight),
+                      ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: RentsColors.accentOrange.withValues(
+                                alpha: 0.15,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.admin_panel_settings,
+                              color: RentsColors.accentOrange,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Người tạo',
+                                  style: TextStyle(
+                                    color: RentsColors.grayDark,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  booking['created_by_name'].toString(),
+                                  style: const TextStyle(
+                                    color: RentsColors.black,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -919,7 +981,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       'Xác nhận',
                       RentsColors.accentGreen,
                       Colors.white,
-                      () {
+                      (booking['status'] == 'completed' || booking['status'] == 'cancelled' || booking['status'] == 'in_progress') ? null : () {
                         Navigator.pop(context);
                         _updateBookingStatus(booking['id'], 'confirmed');
                       },
@@ -931,7 +993,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       'Đang sử dụng',
                       RentsColors.accentOrange,
                       Colors.white,
-                      () {
+                      (booking['status'] == 'completed' || booking['status'] == 'cancelled') ? null : () {
                         Navigator.pop(context);
                         _updateBookingStatus(booking['id'], 'in_progress');
                       },
@@ -947,7 +1009,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       'Hoàn thành',
                       RentsColors.primaryBlue,
                       Colors.white,
-                      () {
+                      (booking['status'] == 'completed' || booking['status'] == 'cancelled') ? null : () {
                         Navigator.pop(context);
                         _updateBookingStatus(booking['id'], 'completed');
                       },
@@ -959,7 +1021,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       'Xóa',
                       Colors.white,
                       RentsColors.accentRed,
-                      () {
+                      (booking['status'] == 'completed' || booking['status'] == 'in_progress') ? null : () {
                         Navigator.pop(context);
                         _deleteBooking(booking['id']);
                       },
@@ -993,36 +1055,37 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     String label,
     Color bgColor,
     Color textColor,
-    VoidCallback onTap, {
+    VoidCallback? onTap, {
     bool isOutlined = false,
   }) {
+    final isDisabled = onTap == null;
     return SizedBox(
       height: 48,
       child: isOutlined
           ? OutlinedButton(
               onPressed: onTap,
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: textColor),
+                side: BorderSide(color: isDisabled ? RentsColors.grayLight : textColor),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: Text(
                 label,
-                style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                style: TextStyle(color: isDisabled ? RentsColors.grayMedium : textColor, fontWeight: FontWeight.bold),
               ),
             )
           : ElevatedButton(
               onPressed: onTap,
               style: ElevatedButton.styleFrom(
-                backgroundColor: bgColor,
+                backgroundColor: isDisabled ? RentsColors.grayLight : bgColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: Text(
                 label,
-                style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                style: TextStyle(color: isDisabled ? RentsColors.grayMedium : textColor, fontWeight: FontWeight.bold),
               ),
             ),
     );
@@ -1144,9 +1207,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     return Scaffold(
       backgroundColor: RentsColors.bgLightBlue,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: RentsColors.bgLightBlue,
         elevation: 0,
         centerTitle: true,
+        leading: const NotificationButton(),
         title: const Text(
           'QUẢN LÝ LỊCH TẬP',
           style: TextStyle(
@@ -1156,114 +1220,38 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.filter_list_rounded,
-              color: RentsColors.primaryBlue,
-            ),
-            onPressed: _showFilterSheet,
-          ),
-          IconButton(
-            icon: Badge(
-              isLabelVisible: _unreadCount > 0,
-              backgroundColor: RentsColors.accentGreen,
-              child: const Icon(
-                Icons.notifications_none_rounded,
+          if (_tabController.index == 0) ...[
+            IconButton(
+              icon: const Icon(
+                Icons.filter_list_rounded,
                 color: RentsColors.primaryBlue,
               ),
+              onPressed: _showFilterSheet,
             ),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-              );
-              _checkNewNotifications();
-            },
+          ],
+          IconButton(
+            icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue),
+            onPressed: _tabController.index == 0 ? _fetchBookings : _fetchClasses,
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: RentsColors.primaryBlue,
+          unselectedLabelColor: RentsColors.grayDark,
+          indicatorColor: RentsColors.primaryBlue,
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          tabs: const [
+            Tab(text: 'Lịch tập'),
+            Tab(text: 'Lớp học'),
+          ],
+        ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // Search Bar
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Tìm theo tên phòng, khách hàng...',
-                hintStyle: const TextStyle(
-                  color: RentsColors.grayDark,
-                  fontSize: 14,
-                ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: RentsColors.grayDark,
-                ),
-                filled: true,
-                fillColor: RentsColors.bgGray,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                    color: RentsColors.primaryBlue,
-                    width: 1,
-                  ),
-                ),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(
-                          Icons.close,
-                          size: 18,
-                          color: RentsColors.grayDark,
-                        ),
-                        onPressed: () => _searchController.clear(),
-                      )
-                    : null,
-              ),
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: RentsColors.primaryBlue,
-                    ),
-                  )
-                : grouped.isEmpty
-                ? const Center(
-                    child: Text(
-                      'Không tìm thấy lịch tập nào',
-                      style: TextStyle(color: RentsColors.grayDark),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: grouped.keys.length,
-                    itemBuilder: (context, index) {
-                      final statusKey = grouped.keys.elementAt(index);
-                      final items = grouped[statusKey]!;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildGroupHeader(statusKey, items.length),
-                          const SizedBox(height: 12),
-                          ...items.map((b) => _buildBookingCard(b)),
-                          const SizedBox(height: 20),
-                        ],
-                      );
-                    },
-                  ),
-          ),
+          _buildBookingsTab(grouped),
+          _buildClassesTab(),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -1271,18 +1259,719 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CreateBookingScreen()),
-          );
-          if (result == true) {
-            _fetchBookings();
-            _checkNewNotifications();
+          if (_tabController.index == 0) {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CreateBookingScreen()),
+            );
+            if (result == true) {
+              _fetchBookings();
+            }
+          } else {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const EditClassScreen()),
+            );
+            if (result == true) {
+              _fetchClasses();
+            }
           }
         },
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
     );
+  }
+
+  Widget _buildBookingsTab(Map<String, List<dynamic>> grouped) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Search Bar
+        Container(
+          color: RentsColors.bgLightBlue,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Tìm theo tên phòng, khách hàng...',
+              hintStyle: const TextStyle(
+                color: RentsColors.grayDark,
+                fontSize: 14,
+              ),
+              prefixIcon: const Icon(
+                Icons.search,
+                color: RentsColors.grayDark,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                  color: RentsColors.primaryBlue,
+                  width: 1,
+                ),
+              ),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: RentsColors.grayDark,
+                      ),
+                      onPressed: () => _searchController.clear(),
+                    )
+                  : null,
+            ),
+          ),
+        ),
+        Expanded(
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: RentsColors.primaryBlue,
+                  ),
+                )
+              : grouped.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Không tìm thấy lịch tập nào',
+                    style: TextStyle(color: RentsColors.grayDark),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: grouped.keys.length,
+                  itemBuilder: (context, index) {
+                    final statusKey = grouped.keys.elementAt(index);
+                    final items = grouped[statusKey]!;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildGroupHeader(statusKey, items.length),
+                        const SizedBox(height: 12),
+                        ...items.map((b) => _buildBookingCard(b)),
+                        const SizedBox(height: 20),
+                      ],
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClassesTab() {
+    // Filter classes based on search
+    final query = _searchController.text.toLowerCase().trim();
+    final filteredClasses = _classesList.where((c) {
+      if (query.isEmpty) return true;
+      final className = (c['class_name'] ?? '').toString().toLowerCase();
+      final courseName = (c['course_name'] ?? '').toString().toLowerCase();
+      final instructorName = (c['instructor_name'] ?? '').toString().toLowerCase();
+      return className.contains(query) || courseName.contains(query) || instructorName.contains(query);
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Search Bar (shared UI but applies to classes here)
+        Container(
+          color: RentsColors.bgLightBlue,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Tìm theo tên lớp, khóa học, giáo viên...',
+              hintStyle: const TextStyle(
+                color: RentsColors.grayDark,
+                fontSize: 14,
+              ),
+              prefixIcon: const Icon(
+                Icons.search,
+                color: RentsColors.grayDark,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                  color: RentsColors.primaryBlue,
+                  width: 1,
+                ),
+              ),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: RentsColors.grayDark,
+                      ),
+                      onPressed: () => _searchController.clear(),
+                    )
+                  : null,
+            ),
+          ),
+        ),
+        Expanded(
+          child: _isLoadingClasses
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: RentsColors.primaryBlue,
+                  ),
+                )
+              : filteredClasses.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Không tìm thấy lớp học nào',
+                    style: TextStyle(color: RentsColors.grayDark),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filteredClasses.length,
+                  itemBuilder: (context, index) {
+                    return _buildClassCard(filteredClasses[index]);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  String _formatClassSchedules(Map<String, dynamic> cls) {
+    Map<String, List<String>> timeToDays = {};
+    for (int i = 1; i <= 3; i++) {
+      String? day = i == 1 ? cls['day_of_week'] : i == 2 ? cls['day_of_week_2'] : cls['day_of_week_3'];
+      String? start = i == 1 ? cls['start_time'] : i == 2 ? cls['start_time_2'] : cls['start_time_3'];
+      String? end = i == 1 ? cls['end_time'] : i == 2 ? cls['end_time_2'] : cls['end_time_3'];
+      
+      if (day != null && start != null && end != null) {
+        String timeStr = '${formatTimeStr(start)}-${formatTimeStr(end)}';
+        if (!timeToDays.containsKey(timeStr)) timeToDays[timeStr] = [];
+        timeToDays[timeStr]!.add(_translateDay(day));
+      }
+    }
+    
+    if (timeToDays.isEmpty) return 'Chưa có lịch';
+    
+    List<String> parts = [];
+    timeToDays.forEach((time, days) {
+      parts.add('${days.join(', ')} $time');
+    });
+    return parts.join(' | ');
+  }
+
+  String _getClassStatus(Map<String, dynamic> cls) {
+    final completed = cls['completed_sessions'] ?? 0;
+    final total = cls['total_sessions'] ?? 0;
+    if (total > 0 && completed >= total) {
+      return 'Hoàn thành';
+    }
+
+    if (cls['status'] != 'active') {
+      return cls['status'] == 'completed' ? 'Hoàn thành' : 'Tạm dừng';
+    }
+    
+    final now = DateTime.now();
+    final todayStr = DateFormat('EEEE').format(now);
+    
+    for (int i = 1; i <= 3; i++) {
+      String? day = i == 1 ? cls['day_of_week'] : i == 2 ? cls['day_of_week_2'] : cls['day_of_week_3'];
+      String? start = i == 1 ? cls['start_time'] : i == 2 ? cls['start_time_2'] : cls['start_time_3'];
+      String? end = i == 1 ? cls['end_time'] : i == 2 ? cls['end_time_2'] : cls['end_time_3'];
+      
+      if (day == todayStr && start != null && end != null) {
+        try {
+          final startParts = start.split(':');
+          final endParts = end.split(':');
+          if (startParts.length >= 2 && endParts.length >= 2) {
+            final startTime = DateTime(now.year, now.month, now.day, int.parse(startParts[0]), int.parse(startParts[1]));
+            final endTime = DateTime(now.year, now.month, now.day, int.parse(endParts[0]), int.parse(endParts[1]));
+            
+            if (now.isAfter(startTime.subtract(const Duration(minutes: 30))) && now.isBefore(startTime)) {
+              return 'Sắp tới giờ học';
+            }
+            if (now.isAfter(startTime) && now.isBefore(endTime)) {
+              return 'Đang diễn ra';
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    return 'Đang học';
+  }
+
+  Color _getClassStatusColor(String statusLabel) {
+    if (statusLabel == 'Đang diễn ra' || statusLabel == 'Sắp tới giờ học') return RentsColors.primaryBlue;
+    if (statusLabel == 'Đang học') return RentsColors.accentGreen;
+    if (statusLabel == 'Hoàn thành') return RentsColors.primaryBlue;
+    return RentsColors.accentOrange;
+  }
+
+  Widget _buildClassCard(Map<String, dynamic> cls) {
+    final className = cls['class_name'] ?? 'Lớp học';
+    final courseName = cls['course_name'] ?? 'Khóa học';
+    final instructorName = cls['instructor_name'] ?? 'Chưa xếp giáo viên';
+    
+    final schedulesStr = _formatClassSchedules(cls);
+    
+    final statusLabel = _getClassStatus(cls);
+    final statusColor = _getClassStatusColor(statusLabel);
+
+    final completed = cls['completed_sessions'] ?? 0;
+    final total = cls['total_sessions'] ?? 0;
+
+    return GestureDetector(
+      onTap: () => _showClassDetailSheet(cls),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 18),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: RentsColors.softCardShadow,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                color: RentsColors.bgLightBlue,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: cls['course_image_url'] != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.network(
+                        ApiService.getImageUrl(cls['course_image_url']),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.school, color: RentsColors.grayDark, size: 30),
+                      ),
+                    )
+                  : const Icon(Icons.school, color: RentsColors.grayDark, size: 30),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          className,
+                          style: const TextStyle(
+                            color: RentsColors.black,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          statusLabel,
+                          style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.person_outline, size: 16, color: RentsColors.grayDark),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          instructorName,
+                          style: const TextStyle(color: RentsColors.grayDark, fontSize: 15, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.access_time, size: 16, color: RentsColors.grayDark),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          schedulesStr,
+                          style: const TextStyle(color: RentsColors.grayDark, fontSize: 13, fontWeight: FontWeight.w600),
+                          maxLines: 3,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.check_circle_outline, size: 16, color: RentsColors.grayDark),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Số buổi: $completed/$total',
+                          style: const TextStyle(color: RentsColors.grayDark, fontSize: 13, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showClassDetailSheet(Map<String, dynamic> cls) {
+    final className = cls['class_name'] ?? 'Lớp học';
+    final courseName = cls['course_name'] ?? 'Khóa học';
+    final instructorName = cls['instructor_name'] ?? 'Chưa xếp giáo viên';
+    
+    final schedulesStr = _formatClassSchedules(cls);
+    
+    final statusLabel = _getClassStatus(cls);
+    final statusColor = _getClassStatusColor(statusLabel);
+
+    final completed = cls['completed_sessions'] ?? 0;
+    final total = cls['total_sessions'] ?? 0;
+    final imageUrl = cls['course_image_url'];
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: RentsColors.grayMedium,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Image
+              Container(
+                width: double.infinity,
+                height: 180,
+                decoration: BoxDecoration(
+                  color: RentsColors.bgGray,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: imageUrl != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          ApiService.getImageUrl(imageUrl),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
+                        ),
+                      )
+                    : _buildPlaceholderImage(),
+              ),
+              const SizedBox(height: 20),
+              // Title & Edit
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      className,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: RentsColors.black),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Tags
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: RentsColors.primaryBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline, size: 14, color: RentsColors.primaryBlue),
+                        const SizedBox(width: 6),
+                        Text(instructorName, style: const TextStyle(color: RentsColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 14, color: statusColor),
+                        const SizedBox(width: 6),
+                        Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Info Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: RentsColors.bgLightBlue, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: RentsColors.primaryBlue.withValues(alpha: 0.15), shape: BoxShape.circle),
+                          child: const Icon(Icons.access_time_filled, color: RentsColors.primaryBlue, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Thời gian', style: TextStyle(color: RentsColors.grayDark, fontSize: 12)),
+                              const SizedBox(height: 2),
+                              Text(schedulesStr, style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: RentsColors.grayLight)),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: RentsColors.accentGreen.withValues(alpha: 0.15), shape: BoxShape.circle),
+                          child: const Icon(Icons.check_circle, color: RentsColors.accentGreen, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Tiến độ', style: TextStyle(color: RentsColors.grayDark, fontSize: 12)),
+                              const SizedBox(height: 2),
+                              Text('$completed / $total buổi', style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (cls['student_names'] != null) ...[
+                      const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: RentsColors.grayLight)),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: RentsColors.primaryBlue.withValues(alpha: 0.15), shape: BoxShape.circle),
+                            child: const Icon(Icons.group, color: RentsColors.primaryBlue, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Học viên', style: TextStyle(color: RentsColors.grayDark, fontSize: 12)),
+                                const SizedBox(height: 2),
+                                Text(cls['student_names'].toString(), style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 14)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildActionButton(
+                      'Tạm dừng',
+                      RentsColors.accentOrange,
+                      Colors.white,
+                      cls['status'] == 'active' ? () {
+                        Navigator.pop(context);
+                        _updateClassStatus(cls['id'], 'cancelled');
+                      } : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildActionButton(
+                      'Mở lại',
+                      RentsColors.accentGreen,
+                      Colors.white,
+                      cls['status'] == 'cancelled' ? () {
+                        Navigator.pop(context);
+                        _updateClassStatus(cls['id'], 'active');
+                      } : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildActionButton(
+                      'Học xong 1 buổi',
+                      RentsColors.primaryBlue,
+                      Colors.white,
+                      (cls['status'] == 'completed' || cls['status'] == 'cancelled' || (total > 0 && completed >= total)) ? null : () {
+                        Navigator.pop(context);
+                        _updateClassSessions(cls, completed + 1);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildActionButton(
+                      'Xóa',
+                      Colors.white,
+                      RentsColors.accentRed,
+                      () {
+                        Navigator.pop(context);
+                        _deleteClass(cls['id']);
+                      },
+                      isOutlined: true,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _updateClassStatus(dynamic id, String newStatus) async {
+    setState(() => _isLoadingClasses = true);
+    try {
+      final response = await ApiService.put('/classes/$id', {'status': newStatus});
+      if (response.statusCode == 200) {
+        _fetchClasses();
+      } else {
+        setState(() => _isLoadingClasses = false);
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi cập nhật trạng thái')));
+      }
+    } catch (_) {
+      setState(() => _isLoadingClasses = false);
+    }
+  }
+
+  Future<void> _updateClassSessions(Map<String, dynamic> cls, int newSessions) async {
+    final total = cls['total_sessions'] ?? 0;
+    String newStatus = cls['status'] ?? 'active';
+    if (newSessions >= total && total > 0) {
+      newStatus = 'completed';
+    }
+
+    setState(() => _isLoadingClasses = true);
+    try {
+      final response = await ApiService.put('/classes/${cls['id']}', {'completed_sessions': newSessions, 'status': newStatus});
+      if (response.statusCode == 200) {
+        _fetchClasses();
+      } else {
+        setState(() => _isLoadingClasses = false);
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi cập nhật số buổi')));
+      }
+    } catch (_) {
+      setState(() => _isLoadingClasses = false);
+    }
+  }
+
+  Future<void> _deleteClass(dynamic id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận xóa'),
+        content: const Text('Bạn có chắc chắn muốn xóa lớp học này?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xóa', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isLoadingClasses = true);
+    try {
+      final response = await ApiService.delete('/classes/$id');
+      if (response.statusCode == 200) {
+        _fetchClasses();
+      } else {
+        setState(() => _isLoadingClasses = false);
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể xóa lớp (có thể đang có học viên)')));
+      }
+    } catch (_) {
+      setState(() => _isLoadingClasses = false);
+    }
   }
 
   Widget _buildGroupHeader(String title, int count) {
@@ -1339,16 +2028,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         'Khách';
     final roomName = booking['room_name'] ?? 'Phòng';
     final date = formatBookingDate(booking['booking_date']);
-    final startTime = booking['start_time'] ?? '';
-    final endTime = booking['end_time'] ?? '';
+    final startTime = formatTimeStr(booking['start_time']);
+    final endTime = formatTimeStr(booking['end_time']);
     final statusColor = _getStatusColor(booking['status']);
     final statusLabel = _getStatusLabel(booking['status']);
 
     return GestureDetector(
       onTap: () => _showBookingDetailSheet(booking),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 18),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -1358,8 +2047,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 70,
-              height: 70,
+              width: 90,
+              height: 90,
               decoration: BoxDecoration(
                 color: RentsColors.bgLightBlue,
                 borderRadius: BorderRadius.circular(14),
@@ -1368,7 +2057,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: Image.network(
-                        'http://10.0.2.2:3001${booking['room_image_url']}',
+                        ApiService.getImageUrl(booking['room_image_url']),
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => const Icon(
                           Icons.meeting_room,
@@ -1391,8 +2080,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           roomName,
                           style: const TextStyle(
                             color: RentsColors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1413,7 +2102,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           style: TextStyle(
                             color: statusColor,
                             fontWeight: FontWeight.bold,
-                            fontSize: 11,
+                            fontSize: 12,
                           ),
                         ),
                       ),
@@ -1421,40 +2110,86 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   ),
                   const SizedBox(height: 6),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.person_outline,
-                        size: 16,
-                        color: RentsColors.grayDark,
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.person_outline,
+                          size: 16,
+                          color: RentsColors.grayDark,
+                        ),
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        customerName,
-                        style: const TextStyle(
-                          color: RentsColors.grayDark,
-                          fontSize: 14,
+                      Expanded(
+                        child: Text(
+                          customerName,
+                          style: const TextStyle(
+                            color: RentsColors.grayDark,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.access_time,
-                        size: 16,
-                        color: RentsColors.grayDark,
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.access_time,
+                          size: 16,
+                          color: RentsColors.grayDark,
+                        ),
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        '$date | $startTime - $endTime',
-                        style: const TextStyle(
-                          color: RentsColors.grayDark,
-                          fontSize: 14,
+                      Expanded(
+                        child: Text(
+                          '$date | $startTime - $endTime',
+                          style: const TextStyle(
+                            color: RentsColors.grayDark,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 2,
                         ),
                       ),
                     ],
                   ),
+                  if (booking['created_by_name'] != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(
+                            Icons.admin_panel_settings,
+                            size: 16,
+                            color: RentsColors.grayDark,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Người tạo: ${booking['created_by_name']}',
+                            style: const TextStyle(
+                              color: RentsColors.grayDark,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1495,6 +2230,20 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         return 'Chờ xác nhận';
       default:
         return status ?? 'Chờ xác nhận';
+    }
+  }
+
+  String _translateDay(String? day) {
+    if (day == null) return '';
+    switch (day.toLowerCase()) {
+      case 'monday': return 'Thứ Hai';
+      case 'tuesday': return 'Thứ Ba';
+      case 'wednesday': return 'Thứ Tư';
+      case 'thursday': return 'Thứ Năm';
+      case 'friday': return 'Thứ Sáu';
+      case 'saturday': return 'Thứ Bảy';
+      case 'sunday': return 'Chủ Nhật';
+      default: return day;
     }
   }
 }

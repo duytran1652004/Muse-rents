@@ -129,10 +129,11 @@ exports.getAllBookings = async (req, res) => {
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
     const [rows] = await db.query(
-      `SELECT b.*, s.name AS student_name, s.phone AS student_phone, r.name AS room_name, r.image_url AS room_image_url, r.facilities AS room_facilities, r.capacity AS room_capacity
+      `SELECT b.*, s.name AS student_name, s.phone AS student_phone, r.name AS room_name, r.image_url AS room_image_url, r.facilities AS room_facilities, r.capacity AS room_capacity, u.full_name AS created_by_name
        FROM bookings b
        LEFT JOIN students s ON b.student_id = s.id
        LEFT JOIN rooms r ON b.room_id = r.id
+       LEFT JOIN users u ON b.created_by = u.id
        ${whereClause}
        ORDER BY b.booking_date DESC, b.start_time DESC`,
       params,
@@ -176,11 +177,36 @@ exports.createBooking = async (req, res) => {
       finalPrice: price,
     });
 
+    const [roomCheck] = await db.query('SELECT status FROM rooms WHERE id = ?', [room_id]);
+    if (roomCheck.length > 0 && ['maintenance', 'closed'].includes(roomCheck[0].status)) {
+      return res.status(400).json({ message: 'Phòng đang bảo trì hoặc đóng cửa, không thể đặt.' });
+    }
+
+    const [overlap] = await db.query(
+      `SELECT id FROM bookings WHERE room_id = ? AND booking_date = ? AND status IN ('confirmed', 'in_progress') AND start_time < ? AND end_time > ?`,
+      [room_id, booking_date, end_time, start_time]
+    );
+    if (overlap.length > 0) {
+      return res.status(400).json({ message: 'Phòng đã có lịch đặt trong khoảng thời gian này.' });
+    }
+
+    const [overlapClass] = await db.query(
+      `SELECT id FROM classes WHERE room_id = ? AND status = 'active' AND (
+        (day_of_week = DAYNAME(?) AND start_time < ? AND end_time > ?) OR
+        (day_of_week_2 = DAYNAME(?) AND start_time_2 < ? AND end_time_2 > ?) OR
+        (day_of_week_3 = DAYNAME(?) AND start_time_3 < ? AND end_time_3 > ?)
+      )`,
+      [room_id, booking_date, end_time, start_time, booking_date, end_time, start_time, booking_date, end_time, start_time]
+    );
+    if (overlapClass.length > 0) {
+      return res.status(400).json({ message: 'Phòng tập đã bị khóa vì có tiết Lớp học trong khoảng thời gian này.' });
+    }
+
     const [result] = await db.query(
       `INSERT INTO bookings
-       (student_id, room_id, booking_date, start_time, end_time, price, status, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [student_id || null, room_id, booking_date, start_time, end_time, price || 0, 'confirmed', bookingNotes],
+       (student_id, room_id, booking_date, start_time, end_time, price, status, notes, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [student_id || null, room_id, booking_date, start_time, end_time, price || 0, 'confirmed', bookingNotes, req.user ? req.user.id : null],
     );
 
     if (student_id) {
@@ -225,6 +251,51 @@ exports.updateBookingStatus = async (req, res) => {
       price,
       ...rest
     } = req.body;
+
+    if (existing.status === 'completed') {
+      if (status && status !== 'completed') {
+        return res.status(400).json({ message: 'Lịch tập đã hoàn thành không thể đổi trạng thái.' });
+      }
+      if (price !== undefined || rest.start_time || rest.end_time || rest.room_id || rest.booking_date) {
+        return res.status(400).json({ message: 'Không thể chỉnh sửa thời gian, phòng hoặc giá của lịch tập đã hoàn thành.' });
+      }
+    }
+
+    if (existing.status === 'cancelled' && status === 'completed') {
+      return res.status(400).json({ message: 'Không thể chuyển lịch đã hủy thành hoàn thành.' });
+    }
+
+    if (existing.status === 'in_progress' && status === 'cancelled') {
+      return res.status(400).json({ message: 'Không thể hủy lịch đang sử dụng.' });
+    }
+
+    const checkRoomId = rest.room_id || existing.room_id;
+    const checkDate = rest.booking_date || (existing.booking_date instanceof Date ? existing.booking_date.toISOString().split('T')[0] : existing.booking_date);
+    const checkStart = rest.start_time || existing.start_time;
+    const checkEnd = rest.end_time || existing.end_time;
+    const checkStatus = status || existing.status;
+
+    if (['confirmed', 'in_progress'].includes(checkStatus) && (rest.room_id || rest.booking_date || rest.start_time || rest.end_time || status === 'confirmed' || status === 'in_progress')) {
+      const [overlap] = await db.query(
+        `SELECT id FROM bookings WHERE room_id = ? AND booking_date = ? AND status IN ('confirmed', 'in_progress') AND start_time < ? AND end_time > ? AND id != ?`,
+        [checkRoomId, checkDate, checkEnd, checkStart, existing.id]
+      );
+      if (overlap.length > 0) {
+        return res.status(400).json({ message: 'Phòng đã có lịch đặt trong khoảng thời gian này.' });
+      }
+
+      const [overlapClass] = await db.query(
+        `SELECT id FROM classes WHERE room_id = ? AND status = 'active' AND (
+          (day_of_week = DAYNAME(?) AND start_time < ? AND end_time > ?) OR
+          (day_of_week_2 = DAYNAME(?) AND start_time_2 < ? AND end_time_2 > ?) OR
+          (day_of_week_3 = DAYNAME(?) AND start_time_3 < ? AND end_time_3 > ?)
+        )`,
+        [checkRoomId, checkDate, checkEnd, checkStart, checkDate, checkEnd, checkStart, checkDate, checkEnd, checkStart]
+      );
+      if (overlapClass.length > 0) {
+        return res.status(400).json({ message: 'Phòng tập đã bị khóa vì có tiết Lớp học trong khoảng thời gian này.' });
+      }
+    }
 
     const fields = [];
     const params = [];
@@ -323,6 +394,10 @@ exports.deleteBooking = async (req, res) => {
     const [existingRows] = await db.query('SELECT * FROM bookings WHERE id = ?', [req.params.id]);
     if (existingRows.length === 0) {
       return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (['completed', 'in_progress'].includes(existingRows[0].status)) {
+      return res.status(400).json({ message: 'Không thể xóa lịch tập đang sử dụng hoặc đã hoàn thành.' });
     }
 
     await db.query('DELETE FROM bookings WHERE id = ?', [req.params.id]);

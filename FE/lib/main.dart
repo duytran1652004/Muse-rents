@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/rents_colors.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/admin/admin_shell.dart';
-import 'widgets/decorated_background.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,11 +87,11 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkLoginStatus() async {
     await Future.delayed(const Duration(seconds: 2));
     
-    if (!mounted) return;
-
     final prefs = await SharedPreferences.getInstance();
     final bool rememberMe = prefs.getBool('remember_me') ?? false;
     final String? token = prefs.getString('token');
+
+    if (!mounted) return;
 
     if (rememberMe && token != null && token.isNotEmpty) {
       Navigator.pushReplacement(
@@ -110,29 +109,12 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: DecoratedBackground(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(40),
-                boxShadow: [
-                  BoxShadow(color: RentsColors.primaryBlue.withValues(alpha: 0.1), blurRadius: 40, offset: const Offset(0, 10)),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(40),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  height: 220,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-            const SizedBox(height: 50),
-            const CircularProgressIndicator(color: RentsColors.primaryBlue),
-          ],
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Image.asset(
+          'assets/images/logo.png',
+          width: 250,
+          fit: BoxFit.contain,
         ),
       ),
     );

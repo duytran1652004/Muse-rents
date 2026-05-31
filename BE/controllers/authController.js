@@ -39,10 +39,7 @@ exports.login = async (req, res) => {
     const user = users[0];
     const isMatch = await bcrypt.compare(password, user.password_hash);
     
-    // Fallback for plain text admin (from init_db.sql)
-    const isPlainMatch = (password === user.password_hash);
-
-    if (!isMatch && !isPlainMatch) {
+    if (!isMatch) {
       return res.status(401).json({ error: 'Mật khẩu không chính xác' });
     }
 
@@ -99,8 +96,7 @@ exports.updateProfile = async (req, res) => {
     if (new_password) {
       if (!current_password) return res.status(400).json({ error: 'Vui lòng nhập mật khẩu hiện tại' });
       const isMatch = await bcrypt.compare(current_password, user.password_hash);
-      const isPlainMatch = (current_password === user.password_hash);
-      if (!isMatch && !isPlainMatch) return res.status(401).json({ error: 'Mật khẩu hiện tại không đúng' });
+      if (!isMatch) return res.status(401).json({ error: 'Mật khẩu hiện tại không đúng' });
       const hashed = await bcrypt.hash(new_password, 10);
       await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashed, req.user.id]);
     }

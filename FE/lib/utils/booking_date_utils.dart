@@ -32,3 +32,15 @@ String formatBookingDateShort(dynamic value) {
   if (parsed == null) return '';
   return '${parsed.day}/${parsed.month}';
 }
+
+String formatTimeStr(String? t) {
+  if (t == null || t.trim().isEmpty) return '';
+  final parts = t.trim().split(':');
+  if (parts.length >= 2) {
+    int? hour = int.tryParse(parts[0]);
+    if (hour != null) {
+      return '$hour:${parts[1]}';
+    }
+  }
+  return t.trim();
+}

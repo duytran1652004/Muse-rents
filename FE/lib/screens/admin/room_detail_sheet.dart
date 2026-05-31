@@ -445,7 +445,7 @@ class _RoomDetailSheetState extends State<RoomDetailSheet> {
                   ),
                 ),
                 Text(
-                  '${_formatDate(booking['booking_date'])} | ${booking['start_time'] ?? ''} - ${booking['end_time'] ?? ''}',
+                  '${_formatDate(booking['booking_date'])} | ${formatTimeStr(booking['start_time'])} - ${formatTimeStr(booking['end_time'])}',
                   style: const TextStyle(
                     color: RentsColors.grayDark,
                     fontSize: 12,
@@ -458,6 +458,15 @@ class _RoomDetailSheetState extends State<RoomDetailSheet> {
                     style: const TextStyle(
                       color: RentsColors.grayDark,
                       fontSize: 12,
+                    ),
+                  ),
+                if (booking['created_by_name'] != null)
+                  Text(
+                    'Người tạo: ${booking['created_by_name']}',
+                    style: const TextStyle(
+                      color: RentsColors.grayDark,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
               ],
