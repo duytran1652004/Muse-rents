@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import 'edit_item_screen.dart';
 import 'room_detail_sheet.dart';
 import '../../widgets/notification_button.dart';
+import '../../utils/globals.dart';
 
 class RoomManagementScreen extends StatefulWidget {
   const RoomManagementScreen({super.key});
@@ -111,10 +112,14 @@ class _RoomManagementScreenState extends State<RoomManagementScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: RentsColors.bgLightBlue,
-      appBar: _buildAppBar(),
-      body: Column(
+    return ValueListenableBuilder<String>(
+      valueListenable: globalRole,
+      builder: (context, role, child) {
+        final isAdmin = role == 'admin';
+        return Scaffold(
+          backgroundColor: RentsColors.bgLightBlue,
+          appBar: _buildAppBar(),
+          body: Column(
         children: [
           _buildSearchAndFilter(),
           Expanded(
@@ -137,11 +142,13 @@ class _RoomManagementScreenState extends State<RoomManagementScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: isAdmin ? FloatingActionButton(
         onPressed: () => _openEdit(null),
         backgroundColor: RentsColors.primaryBlue,
         child: const Icon(Icons.add, color: Colors.white),
-      ),
+      ) : null,
+    );
+  },
     );
   }
 

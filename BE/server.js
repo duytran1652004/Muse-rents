@@ -15,6 +15,7 @@ const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const classRoutes = require('./routes/classRoutes');
 const instructorRoutes = require('./routes/instructorRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -35,6 +36,7 @@ app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/instructors', instructorRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'MUSE Rents Backend is running' });

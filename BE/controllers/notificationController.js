@@ -4,6 +4,22 @@ const db = require('../config/db');
 exports.getAllNotifications = async (req, res) => {
   try {
     const userId = req.user?.id;
+    const role = req.user?.role;
+    
+    let whereClause = 'WHERE n.user_id = ? OR n.user_id IS NULL';
+    let params = [userId || null];
+
+    if (role === 'teacher') {
+      const [instructor] = await db.query('SELECT id FROM instructors WHERE user_id = ?', [userId]);
+      if (instructor.length > 0) {
+        whereClause = `WHERE n.user_id = ? OR (n.type = 'class' AND c.instructor_id = ?)`;
+        params = [userId, instructor[0].id];
+      } else {
+        whereClause = `WHERE n.user_id = ?`;
+        params = [userId];
+      }
+    }
+
     const [rows] = await db.query(
       `SELECT n.*,
        b.id AS b_id, b.booking_date, b.start_time, b.end_time, b.status AS booking_status, b.notes AS b_notes, b.price,
@@ -27,9 +43,9 @@ exports.getAllNotifications = async (req, res) => {
        LEFT JOIN instructors i ON c.instructor_id = i.id
        LEFT JOIN rooms cr ON c.room_id = cr.id
        
-       WHERE n.user_id = ? OR n.user_id IS NULL
+       ${whereClause}
        ORDER BY n.created_at DESC LIMIT 50`,
-      [userId || null]
+      params
     );
     
     const formattedRows = rows.map(row => {
@@ -99,10 +115,28 @@ exports.getAllNotifications = async (req, res) => {
 exports.getUnreadCount = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const [rows] = await db.query(
-      'SELECT COUNT(*) as count FROM notifications WHERE (user_id = ? OR user_id IS NULL) AND is_read = FALSE',
-      [userId || null]
-    );
+    const role = req.user?.role;
+    
+    let query = 'SELECT COUNT(*) as count FROM notifications WHERE (user_id = ? OR user_id IS NULL) AND is_read = FALSE';
+    let params = [userId || null];
+
+    if (role === 'teacher') {
+      const [instructor] = await db.query('SELECT id FROM instructors WHERE user_id = ?', [userId]);
+      if (instructor.length > 0) {
+        query = `
+          SELECT COUNT(*) as count 
+          FROM notifications n
+          LEFT JOIN classes c ON n.related_id = c.id AND n.type = 'class'
+          WHERE (n.user_id = ? OR (n.type = 'class' AND c.instructor_id = ?)) AND n.is_read = FALSE
+        `;
+        params = [userId, instructor[0].id];
+      } else {
+        query = 'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = FALSE';
+        params = [userId];
+      }
+    }
+    
+    const [rows] = await db.query(query, params);
     res.json({ count: rows[0].count });
   } catch (err) {
     console.error(err);
@@ -114,10 +148,24 @@ exports.getUnreadCount = async (req, res) => {
 exports.markAllRead = async (req, res) => {
   try {
     const userId = req.user?.id;
-    await db.query(
-      'UPDATE notifications SET is_read = TRUE WHERE user_id = ? OR user_id IS NULL',
-      [userId || null]
-    );
+    const role = req.user?.role;
+    
+    if (role === 'teacher') {
+      const [instructor] = await db.query('SELECT id FROM instructors WHERE user_id = ?', [userId]);
+      if (instructor.length > 0) {
+        // Teacher marking all read: mark personal ones and class ones they teach
+        await db.query(`
+          UPDATE notifications n
+          LEFT JOIN classes c ON n.related_id = c.id AND n.type = 'class'
+          SET n.is_read = TRUE 
+          WHERE n.user_id = ? OR (n.type = 'class' AND c.instructor_id = ?)
+        `, [userId, instructor[0].id]);
+      } else {
+        await db.query('UPDATE notifications SET is_read = TRUE WHERE user_id = ?', [userId]);
+      }
+    } else {
+      await db.query('UPDATE notifications SET is_read = TRUE WHERE user_id = ? OR user_id IS NULL', [userId || null]);
+    }
     res.json({ message: 'All notifications marked as read' });
   } catch (err) {
     console.error(err);
@@ -143,6 +191,7 @@ exports.createNotification = async (req, res) => {
 // DELETE /api/notifications/:id
 exports.deleteNotification = async (req, res) => {
   try {
+    // For simplicity, any user can delete a specific notification they have access to.
     await db.query('DELETE FROM notifications WHERE id = ?', [req.params.id]);
     res.json({ message: 'Notification deleted' });
   } catch (err) {
@@ -156,8 +205,17 @@ exports.deleteMultipleNotifications = async (req, res) => {
   try {
     const { ids } = req.body;
     const userId = req.user?.id;
+    const role = req.user?.role;
+    
     if (ids === 'all') {
-      await db.query('DELETE FROM notifications WHERE user_id = ? OR user_id IS NULL', [userId || null]);
+      if (role === 'teacher') {
+        // Just delete personal notifications, not global ones.
+        // If we let them delete global class notifications, admins lose them. 
+        // We will just let them delete notifications specifically sent to their user_id.
+        await db.query('DELETE FROM notifications WHERE user_id = ?', [userId]);
+      } else {
+        await db.query('DELETE FROM notifications WHERE user_id = ? OR user_id IS NULL', [userId || null]);
+      }
     } else if (Array.isArray(ids) && ids.length > 0) {
       await db.query('DELETE FROM notifications WHERE id IN (?)', [ids]);
     }

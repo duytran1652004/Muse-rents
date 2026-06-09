@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 exports.register = async (req, res) => {
-  const { full_name, phone, email, password } = req.body;
+  const { full_name, phone, email, password, role } = req.body;
   try {
     // Check if user exists
     const [exists] = await pool.query('SELECT id FROM users WHERE phone_number = ? OR email = ?', [phone, email]);
@@ -11,11 +11,21 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: 'Số điện thoại hoặc Email đã tồn tại' });
     }
 
+    const assignedRole = role && ['admin', 'staff', 'teacher'].includes(role) ? role : 'staff';
     const hashedPassword = await bcrypt.hash(password, 10);
     const [result] = await pool.query(
       'INSERT INTO users (full_name, phone_number, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-      [full_name, phone, email, hashedPassword, 'admin']
+      [full_name, phone, email, hashedPassword, assignedRole]
     );
+
+    const userId = result.insertId;
+
+    if (assignedRole === 'teacher') {
+      await pool.query(
+        'INSERT INTO instructors (name, phone, email, status, user_id) VALUES (?, ?, ?, ?, ?)',
+        [full_name, phone, email, 'active', userId]
+      );
+    }
 
 
     res.json({ message: 'Đăng ký thành công', userId: result.insertId });

@@ -4,6 +4,8 @@ import '../services/api_service.dart';
 
 final ValueNotifier<int> globalUnreadCount = ValueNotifier<int>(0);
 final ValueNotifier<Map<String, dynamic>?> latestNotification = ValueNotifier(null);
+final ValueNotifier<String> globalRole = ValueNotifier<String>('user');
+final ValueNotifier<int> globalUserId = ValueNotifier<int>(-1);
 DateTime? _lastNotifTime;
 
 Future<void> fetchGlobalNotifications({bool isInit = false}) async {
@@ -31,6 +33,17 @@ Future<void> fetchGlobalNotifications({bool isInit = false}) async {
           }
         }
       }
+    }
+  } catch (_) {}
+}
+
+Future<void> fetchUserProfile() async {
+  try {
+    final res = await ApiService.get('/auth/me');
+    if (res.statusCode == 200) {
+      final data = json.decode(res.body);
+      globalRole.value = data['role'] ?? 'user';
+      globalUserId.value = data['id'] ?? -1;
     }
   } catch (_) {}
 }

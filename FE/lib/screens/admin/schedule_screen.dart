@@ -372,8 +372,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                               Expanded(
                                 child: InkWell(
                                   onTap: () async {
-                                    final picked = await showTimePicker(
-                                      context: context,
+                                    final picked = await showScrollTimePicker(
+                                      context,
                                       initialTime:
                                           tempStartTime ??
                                           const TimeOfDay(hour: 8, minute: 0),
@@ -431,8 +431,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                               Expanded(
                                 child: InkWell(
                                   onTap: () async {
-                                    final picked = await showTimePicker(
-                                      context: context,
+                                    final picked = await showScrollTimePicker(
+                                      context,
                                       initialTime:
                                           tempEndTime ??
                                           const TimeOfDay(hour: 22, minute: 0),
@@ -1201,84 +1201,91 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredBookings;
-    final grouped = _groupBookings(filtered);
+    return ValueListenableBuilder<String>(
+      valueListenable: globalRole,
+      builder: (context, role, child) {
+        final filtered = _filteredBookings;
+        final grouped = _groupBookings(filtered);
+        final isTeacher = role == 'teacher';
+        final isStaff = role == 'user' || role == 'staff'; // user or staff
 
-    return Scaffold(
-      backgroundColor: RentsColors.bgLightBlue,
-      appBar: AppBar(
-        backgroundColor: RentsColors.bgLightBlue,
-        elevation: 0,
-        centerTitle: true,
-        leading: const NotificationButton(),
-        title: const Text(
-          'QUẢN LÝ LỊCH TẬP',
-          style: TextStyle(
-            color: RentsColors.black,
-            fontWeight: FontWeight.w900,
-            fontSize: 18,
-          ),
-        ),
-        actions: [
-          if (_tabController.index == 0) ...[
-            IconButton(
-              icon: const Icon(
-                Icons.filter_list_rounded,
-                color: RentsColors.primaryBlue,
+        return Scaffold(
+          backgroundColor: RentsColors.bgLightBlue,
+          appBar: AppBar(
+            backgroundColor: RentsColors.bgLightBlue,
+            elevation: 0,
+            centerTitle: true,
+            leading: const NotificationButton(),
+            title: Text(
+              isTeacher ? 'LỚP HỌC' : 'QUẢN LÝ LỊCH TẬP',
+              style: const TextStyle(
+                color: RentsColors.black,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
               ),
-              onPressed: _showFilterSheet,
             ),
-          ],
-          IconButton(
-            icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue),
-            onPressed: _tabController.index == 0 ? _fetchBookings : _fetchClasses,
+            actions: [
+              if (!isTeacher && _tabController.index == 0) ...[
+                IconButton(
+                  icon: const Icon(
+                    Icons.filter_list_rounded,
+                    color: RentsColors.primaryBlue,
+                  ),
+                  onPressed: _showFilterSheet,
+                ),
+              ],
+              IconButton(
+                icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue),
+                onPressed: isTeacher ? _fetchClasses : (_tabController.index == 0 ? _fetchBookings : _fetchClasses),
+              ),
+            ],
+            bottom: isTeacher ? null : TabBar(
+              controller: _tabController,
+              labelColor: RentsColors.primaryBlue,
+              unselectedLabelColor: RentsColors.grayDark,
+              indicatorColor: RentsColors.primaryBlue,
+              indicatorWeight: 3,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              tabs: const [
+                Tab(text: 'Lịch tập'),
+                Tab(text: 'Lớp học'),
+              ],
+            ),
           ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: RentsColors.primaryBlue,
-          unselectedLabelColor: RentsColors.grayDark,
-          indicatorColor: RentsColors.primaryBlue,
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-          tabs: const [
-            Tab(text: 'Lịch tập'),
-            Tab(text: 'Lớp học'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildBookingsTab(grouped),
-          _buildClassesTab(),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: RentsColors.primaryBlue,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: () async {
-          if (_tabController.index == 0) {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CreateBookingScreen()),
-            );
-            if (result == true) {
-              _fetchBookings();
-            }
-          } else {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const EditClassScreen()),
-            );
-            if (result == true) {
-              _fetchClasses();
-            }
-          }
-        },
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
-      ),
+          body: isTeacher ? _buildClassesTab() : TabBarView(
+            controller: _tabController,
+            children: [
+              _buildBookingsTab(grouped),
+              _buildClassesTab(),
+            ],
+          ),
+          floatingActionButton: (isTeacher || (isStaff && _tabController.index == 1)) ? null : FloatingActionButton(
+            backgroundColor: RentsColors.primaryBlue,
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            onPressed: () async {
+              if (_tabController.index == 0) {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateBookingScreen()),
+                );
+                if (result == true) {
+                  _fetchBookings();
+                }
+              } else {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EditClassScreen()),
+                );
+                if (result == true) {
+                  _fetchClasses();
+                }
+              }
+            },
+            child: const Icon(Icons.add, color: Colors.white, size: 28),
+          ),
+        );
+      },
     );
   }
 
@@ -1682,6 +1689,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
     final completed = cls['completed_sessions'] ?? 0;
     final total = cls['total_sessions'] ?? 0;
     final imageUrl = cls['course_image_url'];
+    final isTeacher = globalRole.value == 'teacher';
     
     showModalBottomSheet(
       context: context,
@@ -1739,6 +1747,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: RentsColors.black),
                     ),
                   ),
+                  if (!isTeacher)
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, color: RentsColors.primaryBlue),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => EditClassScreen(existingClass: cls)),
+                        ).then((result) {
+                          if (result == true) _fetchClasses();
+                        });
+                      },
+                    ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -1818,27 +1841,37 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                         ),
                       ],
                     ),
-                    if (cls['student_names'] != null) ...[
+                    if (cls['student_names'] != null && cls['student_names'].toString().isNotEmpty) ...[
                       const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: RentsColors.grayLight)),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(color: RentsColors.primaryBlue.withValues(alpha: 0.15), shape: BoxShape.circle),
-                            child: const Icon(Icons.group, color: RentsColors.primaryBlue, size: 20),
+                      InkWell(
+                        onTap: () {
+                          _showStudentsListSheet(cls['students_json']);
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(color: RentsColors.primaryBlue.withValues(alpha: 0.15), shape: BoxShape.circle),
+                                child: const Icon(Icons.group, color: RentsColors.primaryBlue, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Học viên (Nhấn để xem)', style: TextStyle(color: RentsColors.grayDark, fontSize: 12)),
+                                    const SizedBox(height: 2),
+                                    Text(cls['student_names'].toString(), style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right, color: RentsColors.grayMedium),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Học viên', style: TextStyle(color: RentsColors.grayDark, fontSize: 12)),
-                                const SizedBox(height: 2),
-                                Text(cls['student_names'].toString(), style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 14)),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
 
@@ -1882,26 +1915,115 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                       'Học xong 1 buổi',
                       RentsColors.primaryBlue,
                       Colors.white,
-                      (cls['status'] == 'completed' || cls['status'] == 'cancelled' || (total > 0 && completed >= total)) ? null : () {
-                        Navigator.pop(context);
-                        _updateClassSessions(cls, completed + 1);
+                      (cls['status'] == 'completed' || cls['status'] == 'cancelled' || (total > 0 && completed >= total)) ? null : () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: const Text('Xác nhận'),
+                            content: const Text('Xác nhận đã học xong 1 buổi?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Hủy')),
+                              TextButton(
+                                onPressed: () => Navigator.pop(dialogContext, true),
+                                child: const Text('Xác nhận', style: TextStyle(color: RentsColors.primaryBlue)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          if (context.mounted) Navigator.pop(context);
+                          _updateClassSessions(cls, completed + 1);
+                        }
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildActionButton(
-                      'Xóa',
-                      Colors.white,
-                      RentsColors.accentRed,
-                      () {
-                        Navigator.pop(context);
-                        _deleteClass(cls['id']);
-                      },
-                      isOutlined: true,
+                  if (!isTeacher) const SizedBox(width: 12),
+                  if (!isTeacher)
+                    Expanded(
+                      child: _buildActionButton(
+                        'Xóa',
+                        Colors.white,
+                        RentsColors.accentRed,
+                        (cls['status'] == 'active') ? null : () {
+                          Navigator.pop(context);
+                          _deleteClass(cls['id']);
+                        },
+                        isOutlined: true,
+                      ),
                     ),
-                  ),
                 ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showStudentsListSheet(String? studentsJson) {
+    if (studentsJson == null || studentsJson.isEmpty) return;
+    
+    List<dynamic> students = [];
+    try {
+      students = json.decode(studentsJson);
+    } catch (_) {}
+
+    if (students.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(color: RentsColors.grayMedium, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const Text('Danh sách học viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: RentsColors.black)),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: students.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: RentsColors.grayLight),
+                  itemBuilder: (context, index) {
+                    final student = students[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: RentsColors.primaryBlue.withValues(alpha: 0.1),
+                        child: const Icon(Icons.person, color: RentsColors.primaryBlue),
+                      ),
+                      title: Text(student['name']?.toString() ?? 'Học viên', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (student['phone'] != null && student['phone'].toString().isNotEmpty)
+                            Text(student['phone'].toString()),
+                          if (student['email'] != null && student['email'].toString().isNotEmpty)
+                            Text(student['email'].toString(), style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -1967,7 +2089,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
         _fetchClasses();
       } else {
         setState(() => _isLoadingClasses = false);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể xóa lớp (có thể đang có học viên)')));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể xóa lớp (đã hoàn thành hoặc lỗi hệ thống)')));
       }
     } catch (_) {
       setState(() => _isLoadingClasses = false);

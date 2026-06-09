@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
 import '../../theme/rents_colors.dart';
+import '../../utils/booking_date_utils.dart';
 
 class CreateBookingScreen extends StatefulWidget {
   final Map<String, dynamic>? bookingToEdit;
@@ -213,8 +214,8 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
   }
 
   Future<void> _selectTime(bool isStart) async {
-    final picked = await showTimePicker(
-      context: context,
+    final picked = await showScrollTimePicker(
+      context,
       initialTime: isStart ? _startTime : _endTime,
     );
     if (picked != null) {

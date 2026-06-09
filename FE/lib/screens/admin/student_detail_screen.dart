@@ -317,11 +317,6 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
             _studentData['phone']?.toString() ?? '—',
           ),
           _infoRow(
-            Icons.mail_outline_rounded,
-            'Email',
-            _studentData['email']?.toString() ?? '—',
-          ),
-          _infoRow(
             Icons.event_note_rounded,
             'Ngày đăng ký',
             _formatDate(_studentData['enrollment_date']),
@@ -393,13 +388,16 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
     final int total = enrollment['total_sessions'] ?? 0;
     
     final bool isCompleted = status == 'completed' || (total > 0 && completed >= total);
+    final bool hasClass = enrollment['class_id'] != null;
     
-    final String statusText = isCompleted ? 'Hoàn thành' : status == 'confirmed' ? 'Đã xác nhận' : status == 'active' ? 'Đang học' : 'Đã hủy';
-    final Color badgeColor = isCompleted ? RentsColors.primaryBlue : status == 'confirmed' ? RentsColors.accentOrange : status == 'active' ? RentsColors.accentGreen : RentsColors.accentRed;
+    final String statusText = isCompleted ? 'Hoàn thành' : (status == 'active' || (status == 'confirmed' && hasClass)) ? 'Đang học' : status == 'confirmed' ? 'Đã xác nhận' : 'Đã hủy';
+    final Color badgeColor = isCompleted ? RentsColors.primaryBlue : (status == 'active' || (status == 'confirmed' && hasClass)) ? RentsColors.accentGreen : status == 'confirmed' ? RentsColors.accentOrange : RentsColors.accentRed;
+
+    final bool hasDetails = enrollment['day_of_week'] != null || enrollment['instructor_name'] != null || (enrollment['total_sessions'] != null && enrollment['total_sessions'] > 0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -413,8 +411,8 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
             Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
                     color: badgeColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
@@ -472,63 +470,67 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                   ),
               ],
             ),
-            const Divider(height: 16, thickness: 0.5),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (enrollment['day_of_week'] != null)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(top: 2),
-                              child: Icon(Icons.access_time, size: 14, color: RentsColors.grayDark),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                _formatClassSchedules(enrollment),
+            if (hasDetails) ...[
+              const Divider(height: 20, thickness: 0.5),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (enrollment['day_of_week'] != null) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.only(top: 2),
+                                child: Icon(Icons.access_time, size: 14, color: RentsColors.grayDark),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _formatClassSchedules(enrollment),
+                                  style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                        if (enrollment['instructor_name'] != null) ...[
+                          Row(
+                            children: [
+                              const Icon(Icons.person_outline, size: 14, color: RentsColors.grayDark),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'GV: ${enrollment['instructor_name']}',
+                                  style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                        if (enrollment['total_sessions'] != null && enrollment['total_sessions'] > 0)
+                          Row(
+                            children: [
+                              const Icon(Icons.check_circle_outline, size: 14, color: RentsColors.grayDark),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Số buổi: ${enrollment['completed_sessions'] ?? 0}/${enrollment['total_sessions']}',
                                 style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
                               ),
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 6),
-                      if (enrollment['instructor_name'] != null)
-                        Row(
-                          children: [
-                            const Icon(Icons.person_outline, size: 14, color: RentsColors.grayDark),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'GV: ${enrollment['instructor_name']}',
-                                style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 6),
-                      if (enrollment['total_sessions'] != null && enrollment['total_sessions'] > 0)
-                        Row(
-                          children: [
-                            const Icon(Icons.check_circle_outline, size: 14, color: RentsColors.grayDark),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Số buổi: ${enrollment['completed_sessions'] ?? 0}/${enrollment['total_sessions']}',
-                              style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                    ],
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ],
       ),
     );

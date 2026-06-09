@@ -65,6 +65,7 @@ class MuseRentsApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
+      locale: const Locale('vi', 'VN'),
       home: const SplashScreen(),
     );
   }

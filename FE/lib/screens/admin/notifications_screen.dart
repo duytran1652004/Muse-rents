@@ -935,11 +935,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  String _translateDay(String day) {
+    switch (day) {
+      case 'Monday': return 'Thứ Hai';
+      case 'Tuesday': return 'Thứ Ba';
+      case 'Wednesday': return 'Thứ Tư';
+      case 'Thursday': return 'Thứ Năm';
+      case 'Friday': return 'Thứ Sáu';
+      case 'Saturday': return 'Thứ Bảy';
+      case 'Sunday': return 'Chủ Nhật';
+      default: return day;
+    }
+  }
+
   String _formatClassSchedules(Map<String, dynamic> cls) {
     List<String> schedules = [];
     void addSchedule(String? day, String? start, String? end) {
       if (day != null && start != null && end != null) {
-        schedules.add('$day (${start.substring(0, 5)} - ${end.substring(0, 5)})');
+        schedules.add('${_translateDay(day)} (${start.substring(0, 5)} - ${end.substring(0, 5)})');
       }
     }
     addSchedule(cls['day_of_week'], cls['start_time'], cls['end_time']);

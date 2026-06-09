@@ -353,8 +353,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
               if (widget.type == 'student' || widget.type == 'instructor') ...[
                 _buildInput(controller: _phoneController, label: 'Số điện thoại', icon: Icons.phone, keyboardType: TextInputType.phone, validator: (v) => v!.isEmpty ? 'Nhập SĐT' : null),
                 const SizedBox(height: 15),
-                _buildInput(controller: _emailController, label: 'Email (Tùy chọn)', icon: Icons.email, keyboardType: TextInputType.emailAddress),
-                const SizedBox(height: 15),
                 
                 if (widget.type == 'instructor') ...[
                   _buildInput(controller: _descriptionController, label: 'Giới thiệu / Kinh nghiệm', icon: Icons.description, maxLines: 3),

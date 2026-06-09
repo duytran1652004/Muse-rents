@@ -6,6 +6,8 @@ import '../auth/login_screen.dart';
 import 'course_management_screen.dart';
 import 'room_management_screen.dart';
 import 'student_management_screen.dart';
+import 'user_management_screen.dart';
+import 'revenue_report_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final Function(int)? onNavigate;
@@ -175,16 +177,32 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   String _getRoleLabel(String role) {
-    return '👑 Quản trị viên';
+    switch (role) {
+      case 'admin':
+        return '👑 Quản trị viên';
+      case 'staff':
+        return '💼 Nhân viên';
+      case 'teacher':
+        return '👨‍🏫 Giáo viên';
+      default:
+        return '💼 Nhân viên';
+    }
   }
 
   Color _getRoleColor(String role) {
-    return const Color(0xFFFF6B35);
+    switch (role) {
+      case 'admin':
+        return const Color(0xFFFF6B35);
+      case 'teacher':
+        return const Color(0xFF2ECC71);
+      default:
+        return const Color(0xFF3498DB);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final name = _profile['full_name'] ?? 'Nhân viên';
+    final name = _profile['full_name'] ?? '';
     final email = _profile['email'] ?? '';
     final phone = _profile['phone_number'] ?? '';
     final role = _profile['role'] ?? 'staff';
@@ -295,7 +313,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 ? [
                                     _buildEditField(
                                       controller: _nameController,
-                                      label: 'Tên nhân viên',
+                                      label: 'Họ và tên',
                                       icon: Icons.badge_outlined,
                                       hint: 'Nhập họ và tên',
                                     ),
@@ -307,21 +325,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                                       hint: 'Nhập số điện thoại',
                                       keyboardType: TextInputType.phone,
                                     ),
-                                    const SizedBox(height: 14),
-                                    _buildEditField(
-                                      controller: _emailController,
-                                      label: 'Email',
-                                      icon: Icons.email_outlined,
-                                      hint: 'Nhập email',
-                                      keyboardType: TextInputType.emailAddress,
-                                    ),
                                   ]
                                 : [
-                                    _buildInfoRow(Icons.badge_outlined, 'Tên nhân viên', name.isNotEmpty ? name : '—'),
+                                    _buildInfoRow(Icons.badge_outlined, 'Họ và tên', name.isNotEmpty ? name : '—'),
                                     _buildDivider(),
                                     _buildInfoRow(Icons.phone_outlined, 'Số điện thoại', phone.isNotEmpty ? phone : '—'),
-                                    _buildDivider(),
-                                    _buildInfoRow(Icons.email_outlined, 'Email', email.isNotEmpty ? email : '—'),
                                     _buildDivider(),
                                     _buildInfoRow(Icons.shield_outlined, 'Vai trò', _getRoleLabel(role), color: _getRoleColor(role)),
                                   ],
@@ -411,37 +419,57 @@ class _SettingsScreenState extends State<SettingsScreen>
 
                           // Management options (always visible)
                           if (!_isEditMode) ...[
-                            _buildSectionCard(
-                              title: 'QUẢN LÝ NỘI DUNG',
-                              icon: Icons.dashboard_rounded,
-                              color: const Color(0xFF2ECC71),
-                              children: [
-                                _buildMenuItem(
-                                  Icons.door_front_door_outlined,
-                                  'QUẢN LÝ PHÒNG',
-                                  'Thêm, sửa, xóa phòng',
-                                  RentsColors.primaryBlue,
-                                  () => widget.onNavigate != null ? widget.onNavigate!(1) : Navigator.push(context, MaterialPageRoute(builder: (_) => const RoomManagementScreen())),
-                                ),
-                                _buildDivider(),
-                                _buildMenuItem(
-                                  Icons.people_alt_outlined,
-                                  'QUẢN LÝ HỌC VIÊN',
-                                  'Thêm, sửa, xóa học viên',
-                                  RentsColors.primaryBlue,
-                                  () => widget.onNavigate != null ? widget.onNavigate!(2) : Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentManagementScreen())),
-                                ),
-                                _buildDivider(),
-                                _buildMenuItem(
-                                  Icons.library_books_rounded,
-                                  'QUẢN LÝ KHÓA HỌC',
-                                  'Thêm, sửa, xóa khóa học',
-                                  RentsColors.primaryBlue,
-                                  () => widget.onNavigate != null ? widget.onNavigate!(3) : Navigator.push(context, MaterialPageRoute(builder: (_) => const CourseManagementScreen())),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
+                            if (role != 'teacher') ...[
+                              _buildSectionCard(
+                                title: 'QUẢN LÝ NỘI DUNG',
+                                icon: Icons.dashboard_rounded,
+                                color: const Color(0xFF2ECC71),
+                                children: [
+                                  if (role == 'admin') ...[
+                                    _buildMenuItem(
+                                      Icons.manage_accounts_outlined,
+                                      'QUẢN LÝ TÀI KHOẢN',
+                                      'Phân quyền, sửa đổi chức vụ',
+                                      RentsColors.primaryBlue,
+                                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserManagementScreen())),
+                                    ),
+                                    _buildDivider(),
+                                  ],
+                                  _buildMenuItem(
+                                    Icons.door_front_door_outlined,
+                                    'QUẢN LÝ PHÒNG',
+                                    'Thêm, sửa, xóa phòng',
+                                    RentsColors.primaryBlue,
+                                    () => widget.onNavigate != null ? widget.onNavigate!(1) : Navigator.push(context, MaterialPageRoute(builder: (_) => const RoomManagementScreen())),
+                                  ),
+                                  _buildDivider(),
+                                  _buildMenuItem(
+                                    Icons.people_alt_outlined,
+                                    'QUẢN LÝ HỌC VIÊN',
+                                    'Thêm, sửa, xóa học viên',
+                                    RentsColors.primaryBlue,
+                                    () => widget.onNavigate != null ? widget.onNavigate!(2) : Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentManagementScreen())),
+                                  ),
+                                  _buildDivider(),
+                                  _buildMenuItem(
+                                    Icons.library_books_rounded,
+                                    'QUẢN LÝ KHÓA HỌC',
+                                    'Thêm, sửa, xóa khóa học',
+                                    RentsColors.primaryBlue,
+                                    () => widget.onNavigate != null ? widget.onNavigate!(3) : Navigator.push(context, MaterialPageRoute(builder: (_) => const CourseManagementScreen())),
+                                  ),
+                                  _buildDivider(),
+                                  _buildMenuItem(
+                                    Icons.analytics_outlined,
+                                    'BÁO CÁO DOANH THU',
+                                    'Theo dõi doanh thu phòng và khóa học',
+                                    RentsColors.primaryBlue,
+                                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RevenueReportScreen())),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                            ],
                             _buildSectionCard(
                               title: 'HỆ THỐNG',
                               icon: Icons.settings_rounded,

@@ -38,7 +38,7 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 200),
     );
     fetchGlobalNotifications(isInit: true); // Lấy lần đầu
-
+    fetchUserProfile(); // Lấy role
     latestNotification.addListener(_onLatestNotificationChanged);
   }
 
@@ -113,15 +113,29 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: false,
-      backgroundColor: RentsColors.bgLightBlue,
-      body: _screens[_selectedIndex],
-      bottomNavigationBar: _buildBottomNav(),
+    return ValueListenableBuilder<String>(
+      valueListenable: globalRole,
+      builder: (context, role, child) {
+        final isTeacher = role == 'teacher';
+        
+        Widget currentScreen;
+        if (isTeacher) {
+          currentScreen = _selectedIndex == 1 ? _screens[4] : _screens[0];
+        } else {
+          currentScreen = _screens[_selectedIndex];
+        }
+        
+        return Scaffold(
+          extendBody: false,
+          backgroundColor: RentsColors.bgLightBlue,
+          body: currentScreen,
+          bottomNavigationBar: _buildBottomNav(isTeacher),
+        );
+      },
     );
   }
 
-  Widget _buildBottomNav() {
+  Widget _buildBottomNav(bool isTeacher) {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
@@ -141,7 +155,10 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
+              children: isTeacher ? [
+                _buildNavItem(0, Icons.calendar_month_rounded, Icons.calendar_month, 'Lớp học'),
+                _buildNavItem(1, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
+              ] : [
                 _buildNavItem(0, Icons.calendar_month_rounded, Icons.calendar_month, 'Lịch tập'),
                 _buildNavItem(1, Icons.meeting_room_rounded, Icons.meeting_room_outlined, 'Phòng'),
                 _buildNavItem(2, Icons.people_rounded, Icons.people_outline_rounded, 'Học viên'),

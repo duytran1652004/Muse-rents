@@ -88,13 +88,12 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
                   ),
                 ),
               ),
-              // Image
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: AspectRatio(
-                    aspectRatio: 1.0,
+                    aspectRatio: 2.0, // Make it half the height
                     child: (imageUrl != null && imageUrl.toString().isNotEmpty)
                       ? Image.network(
                           '${widget.baseUrl}$imageUrl',

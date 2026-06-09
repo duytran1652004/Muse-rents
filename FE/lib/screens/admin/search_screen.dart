@@ -174,7 +174,7 @@ class _SearchScreenState extends State<SearchScreen>
         return _buildResultTile(
           icon: Icons.person,
           title: s['name'] ?? '',
-          subtitle: '${s['phone'] ?? ''} • ${s['email'] ?? ''}',
+          subtitle: s['phone'] ?? '',
           color: RentsColors.accentGreen,
           onTap: () => Navigator.push(
             context,

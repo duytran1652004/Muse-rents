@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
+import '../../utils/booking_date_utils.dart';
 import 'package:intl/intl.dart';
 
 class EditClassScreen extends StatefulWidget {
@@ -68,11 +69,17 @@ class _EditClassScreenState extends State<EditClassScreen> {
       final c = widget.existingClass!;
       _selectedCourseId = c['course_id'];
       _maxStudentsController.text = (c['max_students'] ?? 4).toString();
-      _priceController.text = NumberFormat('#,###').format(c['price_per_class'] ?? 0).replaceAll(',', '.');
+      
+      double price = 0;
+      if (c['price_per_class'] != null) {
+        price = double.tryParse(c['price_per_class'].toString()) ?? 0;
+      }
+      _priceController.text = NumberFormat('#,###').format(price).replaceAll(',', '.');
+      
       _totalSessionsController.text = (c['total_sessions'] ?? 0).toString();
       
-      _selectedRoomId = c['room_id'];
-      _selectedInstructorId = c['instructor_id'];
+      _selectedRoomId = c['room_id'] != null ? int.tryParse(c['room_id'].toString()) : null;
+      _selectedInstructorId = c['instructor_id'] != null ? int.tryParse(c['instructor_id'].toString()) : null;
 
       // Lịch 1
       _selectedDay = c['day_of_week'];
@@ -102,7 +109,19 @@ class _EditClassScreenState extends State<EditClassScreen> {
         final enrollments = json.decode(res.body) as List;
         if (mounted) {
           setState(() {
-            _enrolledStudents = enrollments.where((e) => e['status'] == 'confirmed' || e['status'] == 'active').toList();
+            _enrolledStudents = enrollments.where((e) {
+              if (e['status'] != 'confirmed' && e['status'] != 'active') return false;
+              
+              if (e['status'] == 'active' || e['student_status'] == 'active') {
+                if (widget.existingClass != null && e['class_id'] == widget.existingClass!['id']) {
+                  return true;
+                }
+                return false;
+              }
+              
+              return true;
+            }).toList();
+            
             if (widget.existingClass != null) {
               final classId = widget.existingClass!['id'];
               _selectedStudentIds = _enrolledStudents
@@ -184,8 +203,8 @@ class _EditClassScreenState extends State<EditClassScreen> {
     if (scheduleIndex == 2) initial = isStart ? _startTime2 : _endTime2;
     if (scheduleIndex == 3) initial = isStart ? _startTime3 : _endTime3;
 
-    final t = await showTimePicker(
-      context: context,
+    final t = await showScrollTimePicker(
+      context,
       initialTime: initial ?? TimeOfDay.now(),
     );
     if (t != null) {
@@ -303,21 +322,30 @@ class _EditClassScreenState extends State<EditClassScreen> {
 
               // Schedule 1
               _buildScheduleBlock(1, _selectedDay, _startTime, _endTime, 
-                (v) => setState(() => _selectedDay = v),
+                (v) => setState(() {
+                  _selectedDay = v;
+                  if (v == null) { _startTime = null; _endTime = null; }
+                }),
                 (isStart) => _pickTime(1, isStart)
               ),
               const SizedBox(height: 16),
 
               // Schedule 2
               _buildScheduleBlock(2, _selectedDay2, _startTime2, _endTime2, 
-                (v) => setState(() => _selectedDay2 = v),
+                (v) => setState(() {
+                  _selectedDay2 = v;
+                  if (v == null) { _startTime2 = null; _endTime2 = null; }
+                }),
                 (isStart) => _pickTime(2, isStart)
               ),
               const SizedBox(height: 16),
 
               // Schedule 3
               _buildScheduleBlock(3, _selectedDay3, _startTime3, _endTime3, 
-                (v) => setState(() => _selectedDay3 = v),
+                (v) => setState(() {
+                  _selectedDay3 = v;
+                  if (v == null) { _startTime3 = null; _endTime3 = null; }
+                }),
                 (isStart) => _pickTime(3, isStart)
               ),
               const SizedBox(height: 16),
@@ -334,18 +362,18 @@ class _EditClassScreenState extends State<EditClassScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                       child: _buildInput(
-                          controller: _priceController,
-                          label: 'Giá/buổi',
-                          icon: Icons.attach_money,
+                          controller: _totalSessionsController,
+                          label: 'Tổng số buổi',
+                          icon: Icons.format_list_numbered,
                           keyboardType: TextInputType.number,
                           readOnly: true)),
                 ],
               ),
               const SizedBox(height: 16),
               _buildInput(
-                  controller: _totalSessionsController,
-                  label: 'Tổng số buổi',
-                  icon: Icons.format_list_numbered,
+                  controller: _priceController,
+                  label: 'Giá',
+                  icon: Icons.attach_money,
                   keyboardType: TextInputType.number,
                   readOnly: true),
               
@@ -379,6 +407,14 @@ class _EditClassScreenState extends State<EditClassScreen> {
   }
 
   Widget _buildScheduleBlock(int index, String? day, TimeOfDay? start, TimeOfDay? end, Function(String?) onDayChanged, Function(bool) onTimePick) {
+    List<String> availableDays = _days.where((d) {
+      if (d == day) return true;
+      if (index == 1 && (d == _selectedDay2 || d == _selectedDay3)) return false;
+      if (index == 2 && (d == _selectedDay || d == _selectedDay3)) return false;
+      if (index == 3 && (d == _selectedDay || d == _selectedDay2)) return false;
+      return true;
+    }).toList();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -397,7 +433,7 @@ class _EditClassScreenState extends State<EditClassScreen> {
             value: day,
             items: [
               const DropdownMenuItem(value: null, child: Text('Không chọn')),
-              ..._days.map((d) => DropdownMenuItem(
+              ...availableDays.map((d) => DropdownMenuItem(
                 value: d, child: Text(_translateDay(d)))).toList(),
             ],
             onChanged: onDayChanged,
@@ -407,23 +443,42 @@ class _EditClassScreenState extends State<EditClassScreen> {
             children: [
               Expanded(
                 child: InkWell(
-                  onTap: () => onTimePick(true),
+                  onTap: () {
+                    if (day == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn thứ trước khi chọn giờ')));
+                    } else {
+                      onTimePick(true);
+                    }
+                  },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                        labelText: 'Giờ bắt đầu', border: OutlineInputBorder()),
-                    child: Text(start?.format(context) ?? '--:--'),
+                    decoration: InputDecoration(
+                        labelText: 'Giờ bắt đầu', 
+                        border: const OutlineInputBorder(),
+                        filled: day == null,
+                        fillColor: day == null ? Colors.grey.shade200 : Colors.white,
+                    ),
+                    child: Text(start?.format(context) ?? '--:--', style: TextStyle(color: day == null ? RentsColors.grayDark : RentsColors.black)),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: InkWell(
-                  onTap: () => onTimePick(false),
+                  onTap: () {
+                    if (day == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn thứ trước khi chọn giờ')));
+                    } else {
+                      onTimePick(false);
+                    }
+                  },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                         labelText: 'Giờ kết thúc',
-                        border: OutlineInputBorder()),
-                    child: Text(end?.format(context) ?? '--:--'),
+                        border: const OutlineInputBorder(),
+                        filled: day == null,
+                        fillColor: day == null ? Colors.grey.shade200 : Colors.white,
+                    ),
+                    child: Text(end?.format(context) ?? '--:--', style: TextStyle(color: day == null ? RentsColors.grayDark : RentsColors.black)),
                   ),
                 ),
               ),

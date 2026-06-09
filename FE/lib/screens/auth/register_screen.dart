@@ -17,6 +17,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  String _selectedRole = 'staff';
   bool _isLoading = false;
 
   Future<void> _register() async {
@@ -39,6 +40,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'phone': _phoneController.text,
           'email': _emailController.text,
           'password': _passwordController.text,
+          'role': _selectedRole,
         }),
       );
 
@@ -117,9 +119,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 15),
                   _buildRoundedInput(
                     controller: _emailController,
-                    hint: 'Email',
-                    icon: Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
+                    hint: 'Tên tài khoản',
+                    icon: Icons.badge_outlined,
+                    keyboardType: TextInputType.text,
                   ),
                   const SizedBox(height: 15),
                   _buildRoundedInput(
@@ -127,6 +129,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hint: 'Mật khẩu *',
                     icon: Icons.lock_outline,
                     isPassword: true,
+                  ),
+                  const SizedBox(height: 15),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+                      ],
+                      border: Border.all(color: RentsColors.primaryBlue.withValues(alpha: 0.1)),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedRole,
+                        isExpanded: true,
+                        icon: const Icon(Icons.arrow_drop_down, color: RentsColors.primaryBlue),
+                        items: const [
+                          DropdownMenuItem(value: 'staff', child: Text('Nhân viên (Staff)')),
+                          DropdownMenuItem(value: 'teacher', child: Text('Giáo viên (Teacher)')),
+                        ],
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() => _selectedRole = newValue);
+                          }
+                        },
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 30),
                   // Register Button

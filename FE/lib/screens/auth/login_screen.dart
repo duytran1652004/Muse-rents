@@ -117,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Username Input
                   _buildRoundedInput(
                     controller: _identifierController,
-                    hint: 'Email hoặc Số điện thoại',
+                    hint: 'Tên tài khoản hoặc Số điện thoại',
                     icon: Icons.person_outline,
                   ),
                   const SizedBox(height: 20),

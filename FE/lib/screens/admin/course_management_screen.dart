@@ -7,6 +7,7 @@ import '../../theme/rents_colors.dart';
 import 'edit_item_screen.dart';
 import 'course_detail_sheet.dart';
 import '../../widgets/notification_button.dart';
+import '../../utils/globals.dart';
 
 class CourseManagementScreen extends StatefulWidget {
   const CourseManagementScreen({super.key});
@@ -115,10 +116,14 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: RentsColors.bgLightBlue,
-      appBar: _buildAppBar(),
-      body: Column(
+    return ValueListenableBuilder<String>(
+      valueListenable: globalRole,
+      builder: (context, role, child) {
+        final isAdmin = role == 'admin';
+        return Scaffold(
+          backgroundColor: RentsColors.bgLightBlue,
+          appBar: _buildAppBar(),
+          body: Column(
         children: [
           _buildSearchAndFilter(),
           Expanded(
@@ -141,11 +146,13 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: isAdmin ? FloatingActionButton(
         onPressed: () => _openEdit(null),
         backgroundColor: RentsColors.primaryBlue,
         child: const Icon(Icons.add, color: Colors.white),
-      ),
+      ) : null,
+    );
+  },
     );
   }
 

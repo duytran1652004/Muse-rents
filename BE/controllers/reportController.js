@@ -33,3 +33,77 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
+exports.getRevenueReport = async (req, res) => {
+  try {
+    if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'staff')) {
+      return res.status(403).json({ error: 'Truy cập bị từ chối. Cần quyền admin hoặc staff.' });
+    }
+
+    const { type, date } = req.query; // type: 'day' | 'month', date: 'YYYY-MM-DD' or 'YYYY-MM'
+    
+    let bookingWhere = '';
+    let enrollmentWhere = '';
+    let queryParams = [date];
+    
+    if (type === 'day') {
+      bookingWhere = "DATE(booking_date) = ?";
+      enrollmentWhere = "DATE(ce.enrollment_date) = ?";
+    } else if (type === 'month') {
+      bookingWhere = "DATE_FORMAT(booking_date, '%Y-%m') = ?";
+      enrollmentWhere = "DATE_FORMAT(ce.enrollment_date, '%Y-%m') = ?";
+    } else {
+      return res.status(400).json({ error: 'Invalid type. Use "day" or "month"' });
+    }
+
+    // 1. Room rental revenue details
+    const [bookingData] = await pool.query(`
+      SELECT 
+        b.id, b.booking_date, b.start_time, b.end_time, b.price, b.notes,
+        r.name as room_name, r.image_url as room_image_url, s.name as student_name
+      FROM bookings b
+      LEFT JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN students s ON b.student_id = s.id
+      WHERE b.status IN ('confirmed', 'completed')
+      AND r.id IS NOT NULL
+      AND ${bookingWhere.replace('booking_date', 'b.booking_date')}
+      ORDER BY b.booking_date DESC, b.start_time DESC
+    `, queryParams);
+    
+    let roomRevenue = 0;
+    bookingData.forEach(b => roomRevenue += parseFloat(b.price || 0));
+
+    // 2. Course registrations and revenue details
+    const [enrollmentData] = await pool.query(`
+      SELECT 
+        ce.id, ce.enrollment_date, ce.status,
+        c.class_name, co.name as course_name, co.image_url as course_image_url, IFNULL(co.price, 0) as price,
+        s.name as student_name
+      FROM class_enrollments ce
+      LEFT JOIN classes c ON ce.class_id = c.id
+      LEFT JOIN courses co ON (ce.course_id = co.id OR c.course_id = co.id)
+      LEFT JOIN students s ON ce.student_id = s.id
+      WHERE ce.status IN ('confirmed', 'active', 'completed')
+      AND co.id IS NOT NULL
+      AND (c.status IS NULL OR c.status != 'cancelled')
+      AND ${enrollmentWhere.replace('ce.enrollment_date', 'ce.enrollment_date')}
+      ORDER BY ce.enrollment_date DESC
+    `, queryParams);
+    
+    let courseRevenue = 0;
+    enrollmentData.forEach(e => courseRevenue += parseFloat(e.price || 0));
+    const courseRegistrations = enrollmentData.length;
+
+    res.json({
+      roomRevenue: roomRevenue,
+      courseRegistrations: courseRegistrations,
+      courseRevenue: courseRevenue,
+      totalRevenue: roomRevenue + courseRevenue,
+      bookings: bookingData,
+      enrollments: enrollmentData
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};

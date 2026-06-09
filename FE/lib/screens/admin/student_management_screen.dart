@@ -6,6 +6,7 @@ import 'edit_item_screen.dart';
 import 'student_detail_screen.dart';
 import 'instructor_detail_screen.dart'; // We will create this
 import '../../widgets/notification_button.dart';
+import '../../utils/globals.dart';
 
 class StudentManagementScreen extends StatefulWidget {
   const StudentManagementScreen({super.key});
@@ -99,8 +100,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
       _filteredStudents = _students.where((s) {
         final matchSearch = query.isEmpty ||
             (s['name'] ?? '').toLowerCase().contains(query) ||
-            (s['phone'] ?? '').contains(query) ||
-            (s['email'] ?? '').toLowerCase().contains(query);
+            (s['phone'] ?? '').contains(query);
         final matchStatus = _studentFilter == 'all' || s['status'] == _studentFilter;
         return matchSearch && matchStatus;
       }).toList();
@@ -109,8 +109,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
       _filteredInstructors = _instructors.where((i) {
         final matchSearch = query.isEmpty ||
             (i['name'] ?? '').toLowerCase().contains(query) ||
-            (i['phone'] ?? '').contains(query) ||
-            (i['email'] ?? '').toLowerCase().contains(query);
+            (i['phone'] ?? '').contains(query);
         final matchStatus = _instructorFilter == 'all' || i['status'] == _instructorFilter;
         return matchSearch && matchStatus;
       }).toList();
@@ -152,10 +151,14 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
   Widget build(BuildContext context) {
     final isStudentTab = _tabController.index == 0;
     
-    return Scaffold(
-      backgroundColor: RentsColors.bgLightBlue,
-      appBar: _buildAppBar(),
-      body: Column(
+    return ValueListenableBuilder<String>(
+      valueListenable: globalRole,
+      builder: (context, role, child) {
+        final isAdmin = role == 'admin';
+        return Scaffold(
+          backgroundColor: RentsColors.bgLightBlue,
+          appBar: _buildAppBar(),
+          body: Column(
         children: [
           _buildSearchAndFilter(isStudentTab),
           Expanded(
@@ -169,11 +172,13 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: isStudentTab ? () => _openEditStudent(null) : () => _openEditInstructor(null),
+      floatingActionButton: (isAdmin && isStudentTab) ? FloatingActionButton(
+        onPressed: () => _openEditStudent(null),
         backgroundColor: RentsColors.primaryBlue,
-        child: Icon(isStudentTab ? Icons.person_add : Icons.group_add, color: Colors.white),
-      ),
+        child: const Icon(Icons.person_add, color: Colors.white),
+      ) : null,
+    );
+  },
     );
   }
 
@@ -221,7 +226,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
           TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'Tìm theo tên, SĐT, email...',
+              hintText: 'Tìm theo tên, SĐT...',
               hintStyle: const TextStyle(color: RentsColors.grayMedium, fontSize: 14),
               prefixIcon: const Icon(Icons.search, color: RentsColors.grayDark, size: 20),
               filled: true,
@@ -411,16 +416,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
                         const SizedBox(width: 4),
                         Text(user['phone'], style: const TextStyle(color: RentsColors.grayDark, fontSize: 13)),
                       ]),
-                    if (user['email'] != null && user['email'].toString().isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Row(children: [
-                        const Icon(Icons.email_outlined, size: 13, color: RentsColors.grayDark),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(user['email'], style: const TextStyle(color: RentsColors.grayDark, fontSize: 13), overflow: TextOverflow.ellipsis),
-                        ),
-                      ]),
-                    ],
                   ],
                 ),
               ),

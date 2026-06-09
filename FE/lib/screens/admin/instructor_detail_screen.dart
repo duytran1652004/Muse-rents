@@ -278,11 +278,6 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
             _instructorData['phone']?.toString() ?? '—',
           ),
           _infoRow(
-            Icons.mail_outline_rounded,
-            'Email',
-            _instructorData['email']?.toString() ?? '—',
-          ),
-          _infoRow(
             Icons.event_note_rounded,
             'Ngày đăng ký',
             _formatDate(_instructorData['created_at']),
@@ -417,12 +412,14 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
     
     final isCompleted = status == 'completed' || (total > 0 && completed >= total);
     
-    final statusText = isCompleted ? 'Hoàn thành' : (status == 'active' ? 'Đang học' : 'Tạm dừng');
+    final statusText = isCompleted ? 'Hoàn thành' : (status == 'active' ? 'Đang dạy' : 'Tạm dừng');
     final badgeColor = status == 'active' && !isCompleted ? RentsColors.accentGreen : isCompleted ? RentsColors.primaryBlue : RentsColors.accentOrange;
     
+    final bool hasDetails = c['day_of_week'] != null || c['room_name'] != null || (c['total_sessions'] != null && c['total_sessions'] > 0);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -437,8 +434,8 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   color: badgeColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
@@ -489,63 +486,67 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
               ),
             ],
           ),
-          const Divider(height: 16, thickness: 0.5),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (c['day_of_week'] != null)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 2),
-                            child: Icon(Icons.access_time, size: 14, color: RentsColors.grayDark),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _formatClassSchedules(c),
+          if (hasDetails) ...[
+            const Divider(height: 20, thickness: 0.5),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (c['day_of_week'] != null) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.access_time, size: 14, color: RentsColors.grayDark),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _formatClassSchedules(c),
+                                style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      if (c['room_name'] != null) ...[
+                        Row(
+                          children: [
+                            const Icon(Icons.meeting_room_outlined, size: 14, color: RentsColors.grayDark),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'P: ${c['room_name']}',
+                                style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      if (c['total_sessions'] != null && c['total_sessions'] > 0)
+                        Row(
+                          children: [
+                            const Icon(Icons.check_circle_outline, size: 14, color: RentsColors.grayDark),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Số buổi: ${c['completed_sessions'] ?? 0}/${c['total_sessions']}',
                               style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
                             ),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 6),
-                    if (c['room_name'] != null)
-                      Row(
-                        children: [
-                          const Icon(Icons.meeting_room_outlined, size: 14, color: RentsColors.grayDark),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'P: ${c['room_name']}',
-                              style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 6),
-                    if (c['total_sessions'] != null && c['total_sessions'] > 0)
-                      Row(
-                        children: [
-                          const Icon(Icons.check_circle_outline, size: 14, color: RentsColors.grayDark),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Số buổi: ${c['completed_sessions'] ?? 0}/${c['total_sessions']}',
-                            style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                  ],
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
