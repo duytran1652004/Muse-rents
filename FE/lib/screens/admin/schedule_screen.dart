@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'dart:convert';
 import '../../theme/rents_colors.dart';
@@ -47,15 +48,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
   bool _isLoading = true;
   bool _isLoadingClasses = true;
 
-  // Search and Filter States
+  // Search and Filter States for Bookings
   final TextEditingController _searchController = TextEditingController();
-  String _filterStatus =
-      'all'; // all, pending, confirmed, in_use, completed, cancelled
+  String _filterStatus = 'all'; // all, pending, confirmed, in_progress, completed, cancelled
   DateTime? _filterDate;
   TimeOfDay? _filterStartTime;
   TimeOfDay? _filterEndTime;
   String _filterMinPrice = '';
   String _filterMaxPrice = '';
+
+  // Filter States for Classes
+  String _filterClassStatus = 'all'; // all, active, completed, cancelled
+  TimeOfDay? _filterClassStartTime;
+  TimeOfDay? _filterClassEndTime;
 
   @override
   void initState() {
@@ -1225,13 +1230,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
               ),
             ),
             actions: [
-              if (!isTeacher && _tabController.index == 0) ...[
+              if (!isTeacher) ...[
                 IconButton(
                   icon: const Icon(
                     Icons.filter_list_rounded,
                     color: RentsColors.primaryBlue,
                   ),
-                  onPressed: _showFilterSheet,
+                  onPressed: _tabController.index == 0 ? _showFilterSheet : _showClassFilterSheet,
                 ),
               ],
               IconButton(
@@ -1376,15 +1381,277 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
     );
   }
 
+  void _showClassFilterSheet() {
+    String tempStatus = _filterClassStatus;
+    TimeOfDay? tempStartTime = _filterClassStartTime;
+    TimeOfDay? tempEndTime = _filterClassEndTime;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: RentsColors.grayMedium,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Lọc trạng thái',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildFilterChipOption(
+                                  'Tất cả', 'all', tempStatus, RentsColors.primaryBlue,
+                                  (val) => setSheetState(() => tempStatus = val),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildFilterChipOption(
+                                  'Đang học', 'active', tempStatus, RentsColors.accentGreen,
+                                  (val) => setSheetState(() => tempStatus = val),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildFilterChipOption(
+                                  'Hoàn thành', 'completed', tempStatus, RentsColors.primaryBlue,
+                                  (val) => setSheetState(() => tempStatus = val),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildFilterChipOption(
+                                  'Đã hủy', 'cancelled', tempStatus, RentsColors.accentRed,
+                                  (val) => setSheetState(() => tempStatus = val),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Khoảng thời gian (Giờ học)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () async {
+                                    final picked = await showScrollTimePicker(
+                                      context,
+                                      initialTime: tempStartTime ?? const TimeOfDay(hour: 8, minute: 0),
+                                    );
+                                    if (picked != null) setSheetState(() => tempStartTime = picked);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: RentsColors.grayLight),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          tempStartTime?.format(context) ?? 'Bắt đầu',
+                                          style: TextStyle(
+                                            color: tempStartTime != null ? RentsColors.black : Colors.black87,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        if (tempStartTime != null)
+                                          GestureDetector(
+                                            onTap: () => setSheetState(() => tempStartTime = null),
+                                            child: const Icon(Icons.close, size: 16, color: Colors.black87),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('-')),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () async {
+                                    final picked = await showScrollTimePicker(
+                                      context,
+                                      initialTime: tempEndTime ?? const TimeOfDay(hour: 22, minute: 0),
+                                    );
+                                    if (picked != null) setSheetState(() => tempEndTime = picked);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: RentsColors.grayLight),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          tempEndTime?.format(context) ?? 'Kết thúc',
+                                          style: TextStyle(
+                                            color: tempEndTime != null ? RentsColors.black : Colors.black87,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        if (tempEndTime != null)
+                                          GestureDetector(
+                                            onTap: () => setSheetState(() => tempEndTime = null),
+                                            child: const Icon(Icons.close, size: 16, color: Colors.black87),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 40),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _filterClassStatus = 'all';
+                              _filterClassStartTime = null;
+                              _filterClassEndTime = null;
+                            });
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            side: const BorderSide(color: RentsColors.grayDark),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text(
+                            'Xóa bộ lọc',
+                            style: TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _filterClassStatus = tempStatus;
+                              _filterClassStartTime = tempStartTime;
+                              _filterClassEndTime = tempEndTime;
+                            });
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: RentsColors.primaryBlue,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text(
+                            'Áp dụng',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildClassesTab() {
     // Filter classes based on search
     final query = _searchController.text.toLowerCase().trim();
     final filteredClasses = _classesList.where((c) {
-      if (query.isEmpty) return true;
-      final className = (c['class_name'] ?? '').toString().toLowerCase();
-      final courseName = (c['course_name'] ?? '').toString().toLowerCase();
-      final instructorName = (c['instructor_name'] ?? '').toString().toLowerCase();
-      return className.contains(query) || courseName.contains(query) || instructorName.contains(query);
+      if (query.isNotEmpty) {
+        final className = (c['class_name'] ?? '').toString().toLowerCase();
+        final courseName = (c['course_name'] ?? '').toString().toLowerCase();
+        final instructorName = (c['instructor_name'] ?? '').toString().toLowerCase();
+        if (!className.contains(query) && !courseName.contains(query) && !instructorName.contains(query)) {
+          return false;
+        }
+      }
+
+      if (_filterClassStatus != 'all') {
+        if (c['status'] != _filterClassStatus) return false;
+      }
+
+      if (_filterClassStartTime != null || _filterClassEndTime != null) {
+        bool matchesTime = false;
+        for (int i = 1; i <= 3; i++) {
+          String? start = i == 1 ? c['start_time'] : i == 2 ? c['start_time_2'] : c['start_time_3'];
+          String? end = i == 1 ? c['end_time'] : i == 2 ? c['end_time_2'] : c['end_time_3'];
+          
+          if (start != null && end != null) {
+            final stStr = start.split(':');
+            final etStr = end.split(':');
+            if (stStr.length >= 2 && etStr.length >= 2) {
+              final cStartMins = int.parse(stStr[0]) * 60 + int.parse(stStr[1]);
+              final cEndMins = int.parse(etStr[0]) * 60 + int.parse(etStr[1]);
+              
+              bool ok = true;
+              if (_filterClassStartTime != null) {
+                final filterStartMins = _filterClassStartTime!.hour * 60 + _filterClassStartTime!.minute;
+                if (cEndMins <= filterStartMins) ok = false;
+              }
+              if (_filterClassEndTime != null) {
+                final filterEndMins = _filterClassEndTime!.hour * 60 + _filterClassEndTime!.minute;
+                if (cStartMins >= filterEndMins) ok = false;
+              }
+              
+              if (ok) {
+                matchesTime = true;
+                break;
+              }
+            }
+          }
+        }
+        if (!matchesTime) return false;
+      }
+
+      return true;
     }).toList();
 
     return Column(
@@ -2005,8 +2272,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                   separatorBuilder: (_, __) => const Divider(height: 1, color: RentsColors.grayLight),
                   itemBuilder: (context, index) {
                     final student = students[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
+                    return Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
                         backgroundColor: RentsColors.primaryBlue.withValues(alpha: 0.1),
                         child: const Icon(Icons.person, color: RentsColors.primaryBlue),
@@ -2016,10 +2285,20 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (student['phone'] != null && student['phone'].toString().isNotEmpty)
-                            Text(student['phone'].toString()),
+                            GestureDetector(
+                              onTap: () async {
+                                final phone = student['phone'].toString();
+                                final Uri url = Uri.parse('tel:$phone');
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url);
+                                }
+                              },
+                              child: Text(student['phone'].toString(), style: const TextStyle(color: RentsColors.primaryBlue)),
+                            ),
                           if (student['email'] != null && student['email'].toString().isNotEmpty)
                             Text(student['email'].toString(), style: const TextStyle(fontSize: 12)),
                         ],
+                      ),
                       ),
                     );
                   },

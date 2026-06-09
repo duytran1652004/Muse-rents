@@ -4,6 +4,7 @@ import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
 import '../../utils/globals.dart';
 import '../../widgets/notification_button.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -319,15 +320,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         boxShadow: RentsColors.softCardShadow,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Row(
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), shape: BoxShape.circle),
               child: Center(
-                child: Text(initials, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: roleColor)),
+                child: Text(initials, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: roleColor)),
               ),
             ),
             const SizedBox(width: 14),
@@ -338,7 +339,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                        child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -347,9 +348,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   if (user['phone_number'] != null && user['phone_number'].toString().isNotEmpty)
-                    Text(user['phone_number'], style: const TextStyle(color: RentsColors.grayDark, fontSize: 13)),
+                    GestureDetector(
+                      onTap: () async {
+                        final phone = user['phone_number'].toString();
+                        final Uri url = Uri.parse('tel:$phone');
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(url);
+                        }
+                      },
+                      child: Row(
+                        children: [
+                          const Icon(Icons.phone_outlined, size: 15, color: RentsColors.primaryBlue),
+                          const SizedBox(width: 6),
+                          Text(user['phone_number'], style: const TextStyle(color: RentsColors.primaryBlue, fontSize: 14, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),

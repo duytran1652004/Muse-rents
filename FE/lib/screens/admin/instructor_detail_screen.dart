@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme/rents_colors.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'edit_item_screen.dart';
-
 class InstructorDetailScreen extends StatefulWidget {
   final Map<String, dynamic> instructor;
   const InstructorDetailScreen({super.key, required this.instructor});
@@ -276,6 +276,15 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
             Icons.phone_iphone_rounded,
             'Số điện thoại',
             _instructorData['phone']?.toString() ?? '—',
+            onTap: () async {
+              final phone = _instructorData['phone']?.toString() ?? '';
+              if (phone.isNotEmpty && phone != '—') {
+                final Uri url = Uri.parse('tel:$phone');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url);
+                }
+              }
+            },
           ),
           _infoRow(
             Icons.event_note_rounded,
@@ -308,17 +317,20 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: RentsColors.primaryBlue),
-          const SizedBox(width: 12),
-          Text('$label: ', style: const TextStyle(color: RentsColors.grayDark, fontSize: 14)),
-          Expanded(child: Text(value, style: const TextStyle(color: RentsColors.black, fontSize: 14, fontWeight: FontWeight.w700))),
-        ],
+  Widget _infoRow(IconData icon, String label, String value, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: RentsColors.primaryBlue),
+            const SizedBox(width: 12),
+            Text('$label: ', style: const TextStyle(color: RentsColors.grayDark, fontSize: 14)),
+            Expanded(child: Text(value, style: TextStyle(color: onTap != null && value != '—' ? RentsColors.primaryBlue : RentsColors.black, fontSize: 14, fontWeight: FontWeight.w700))),
+          ],
+        ),
       ),
     );
   }

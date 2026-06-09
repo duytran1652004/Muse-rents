@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../auth/login_screen.dart';
 import 'course_management_screen.dart';
 import 'room_management_screen.dart';
@@ -329,7 +330,19 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 : [
                                     _buildInfoRow(Icons.badge_outlined, 'Họ và tên', name.isNotEmpty ? name : '—'),
                                     _buildDivider(),
-                                    _buildInfoRow(Icons.phone_outlined, 'Số điện thoại', phone.isNotEmpty ? phone : '—'),
+                                    _buildInfoRow(
+                                      Icons.phone_outlined, 
+                                      'Số điện thoại', 
+                                      phone.isNotEmpty ? phone : '—',
+                                      onTap: () async {
+                                        if (phone.isNotEmpty && phone != '—') {
+                                          final Uri url = Uri.parse('tel:$phone');
+                                          if (await canLaunchUrl(url)) {
+                                            await launchUrl(url);
+                                          }
+                                        }
+                                      },
+                                    ),
                                     _buildDivider(),
                                     _buildInfoRow(Icons.shield_outlined, 'Vai trò', _getRoleLabel(role), color: _getRoleColor(role)),
                                   ],
@@ -532,9 +545,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+  Widget _buildInfoRow(IconData icon, String label, String value, {Color? color, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
           Container(
@@ -565,6 +580,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -621,18 +637,21 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildMenuItem(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        leading: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
         child: Icon(icon, color: color, size: 22),
       ),
       title: Text(title.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w700, color: RentsColors.black, fontSize: 15)),
       subtitle: Text(subtitle, style: const TextStyle(color: RentsColors.grayDark, fontSize: 12)),
       trailing: const Icon(Icons.chevron_right, color: RentsColors.grayMedium),
       onTap: onTap,
+      ),
     );
   }
 }

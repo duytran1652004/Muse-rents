@@ -7,6 +7,7 @@ import 'student_detail_screen.dart';
 import 'instructor_detail_screen.dart'; // We will create this
 import '../../widgets/notification_button.dart';
 import '../../utils/globals.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class StudentManagementScreen extends StatefulWidget {
   const StudentManagementScreen({super.key});
@@ -373,19 +374,19 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
         borderRadius: BorderRadius.circular(18),
         onTap: () => isStudent ? _openStudentDetail(user) : _openInstructorDetail(user),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Row(
             children: [
               // Avatar
               Container(
-                width: 52,
-                height: 52,
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
                   gradient: isStudent ? RentsColors.primaryGradient : const LinearGradient(colors: [RentsColors.accentGreen, Color(0xFF1AA95B)]),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Text(initials, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+                  child: Text(initials, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
                 ),
               ),
               const SizedBox(width: 14),
@@ -397,7 +398,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
                     Row(
                       children: [
                         Expanded(
-                          child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: RentsColors.black)),
+                          child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: RentsColors.black)),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -409,13 +410,22 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     if (user['phone'] != null && user['phone'].toString().isNotEmpty)
-                      Row(children: [
-                        const Icon(Icons.phone_outlined, size: 13, color: RentsColors.grayDark),
-                        const SizedBox(width: 4),
-                        Text(user['phone'], style: const TextStyle(color: RentsColors.grayDark, fontSize: 13)),
-                      ]),
+                      GestureDetector(
+                        onTap: () async {
+                          final phone = user['phone'].toString();
+                          final Uri url = Uri.parse('tel:$phone');
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url);
+                          }
+                        },
+                        child: Row(children: [
+                          const Icon(Icons.phone_outlined, size: 15, color: RentsColors.primaryBlue),
+                          const SizedBox(width: 6),
+                          Text(user['phone'], style: const TextStyle(color: RentsColors.primaryBlue, fontSize: 14, fontWeight: FontWeight.w600)),
+                        ]),
+                      ),
                   ],
                 ),
               ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
 import '../../theme/rents_colors.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/booking_date_utils.dart';
 import 'edit_item_screen.dart';
 
@@ -315,6 +316,15 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
             Icons.phone_iphone_rounded,
             'Số điện thoại',
             _studentData['phone']?.toString() ?? '—',
+            onTap: () async {
+              final phone = _studentData['phone']?.toString() ?? '';
+              if (phone.isNotEmpty && phone != '—') {
+                final Uri url = Uri.parse('tel:$phone');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url);
+                }
+              }
+            },
           ),
           _infoRow(
             Icons.event_note_rounded,
