@@ -59,6 +59,8 @@ exports.login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    await pool.query('UPDATE users SET session_token = ? WHERE id = ?', [token, user.id]);
+
     res.json({
       token,
       user: {
