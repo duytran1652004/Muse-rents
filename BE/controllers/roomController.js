@@ -38,7 +38,7 @@ const roomSelect = `
 
 exports.getAllRooms = async (req, res) => {
   try {
-    const [rooms] = await pool.query(`${roomSelect} WHERE r.status != "closed" ORDER BY r.created_at DESC`);
+    const [rooms] = await pool.query(`${roomSelect} WHERE r.status != 'closed' ORDER BY r.created_at DESC`);
     res.json(rooms);
   } catch (err) {
     res.status(500).json({ error: err.message });

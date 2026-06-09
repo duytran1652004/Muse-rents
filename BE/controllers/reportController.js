@@ -9,10 +9,10 @@ exports.getDashboardStats = async (req, res) => {
        WHERE status = 'confirmed' 
        AND TIMESTAMP(CONCAT(booking_date, ' ', end_time)) < NOW()`
     );
-    const [roomCount] = await pool.query('SELECT COUNT(*) as total FROM rooms WHERE status != "closed"');
-    const [studentCount] = await pool.query('SELECT COUNT(*) as total FROM students WHERE status = "active"');
+    const [roomCount] = await pool.query('SELECT COUNT(*) as total FROM rooms WHERE status != \\'closed\\'');
+    const [studentCount] = await pool.query('SELECT COUNT(*) as total FROM students WHERE status = \\'active\\'');
     const [newBookings] = await pool.query('SELECT COUNT(*) as total FROM bookings WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)');
-    const [completedBookings] = await pool.query('SELECT COUNT(*) as total FROM bookings WHERE status = "completed"');
+    const [completedBookings] = await pool.query('SELECT COUNT(*) as total FROM bookings WHERE status = \\'completed\\'');
     const [revenue] = await pool.query(`
       SELECT SUM(price) as total 
       FROM bookings 
