@@ -5,9 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/rents_colors.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/admin/admin_shell.dart';
+import 'services/api_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  ApiService.wakeUpServer();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -17,12 +19,15 @@ void main() {
   runApp(const MuseRentsApp());
 }
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class MuseRentsApp extends StatelessWidget {
   const MuseRentsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'MUSE RENTS',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

@@ -19,15 +19,11 @@ class CourseManagementScreen extends StatefulWidget {
 class _CourseManagementScreenState extends State<CourseManagementScreen> {
   static const String baseUrl = ApiService.serverUrl;
 
-  final List<Map<String, String>> _filters = const [
-    {'key': 'all', 'label': 'Tất cả'},
-    {'key': 'active', 'label': 'Đang mở'},
-    {'key': 'inactive', 'label': 'Tạm dừng'},
-  ];
+
 
   List<dynamic> _courses = [];
   bool _isLoading = true;
-  String _filterStatus = 'all';
+
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -67,11 +63,8 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
   List<dynamic> get _filteredCourses {
     final query = _searchController.text.toLowerCase();
     return _courses.where((course) {
-      final status = (course['status'] ?? 'inactive').toString();
-      final matchStatus = _filterStatus == 'all' || status == _filterStatus;
       final name = (course['name'] ?? '').toString().toLowerCase();
-      final matchSearch = name.contains(query);
-      return matchStatus && matchSearch;
+      return name.contains(query);
     }).toList();
   }
 
@@ -99,16 +92,6 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
         onEdit: () {
           Navigator.pop(context);
           _openEdit(course);
-        },
-        onStatusChange: (id, status) async {
-          await ApiService.put('/courses/$id', {
-            'name': course['name'],
-            'description': course['description'],
-            'price': course['price'],
-            'duration': course['duration'],
-            'status': status,
-          });
-          _fetchCourses();
         },
       ),
     );
@@ -209,46 +192,7 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
                   : null,
             ),
           ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _filters.map((filter) {
-                final isActive = _filterStatus == filter['key'];
-                return GestureDetector(
-                  onTap: () =>
-                      setState(() => _filterStatus = filter['key'] ?? 'all'),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.only(right: 8, bottom: 12),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? RentsColors.primaryBlue
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isActive
-                            ? RentsColors.primaryBlue
-                            : RentsColors.grayLight,
-                      ),
-                    ),
-                    child: Text(
-                      filter['label'] ?? '',
-                      style: TextStyle(
-                        color: isActive ? Colors.white : RentsColors.grayDark,
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+
         ],
       ),
     );
@@ -275,12 +219,7 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
 
   Widget _buildCourseCard(Map<String, dynamic> course) {
     final imageUrl = (course['image_url'] ?? '').toString();
-    final status = (course['status'] ?? 'inactive').toString();
-    final isActive = status == 'active';
-    final statusColor = isActive
-        ? RentsColors.accentGreen
-        : RentsColors.accentOrange;
-    final statusLabel = isActive ? 'Đang mở' : 'Tạm dừng';
+
     final duration = _courseDuration(course);
     final description = (course['description'] ?? '').toString().trim();
 
@@ -315,28 +254,7 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
                           : _buildPlaceholder(),
                     ),
                   ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        statusLabel,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
+
                   if (description.isNotEmpty)
                     Positioned(
                       left: 0,
@@ -454,11 +372,9 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
             color: RentsColors.grayMedium,
           ),
           const SizedBox(height: 12),
-          Text(
-            _filterStatus == 'all'
-                ? 'Không có khóa học nào'
-                : 'Không có khóa học phù hợp',
-            style: const TextStyle(color: RentsColors.grayDark, fontSize: 15),
+          const Text(
+            'Không có khóa học nào',
+            style: TextStyle(color: RentsColors.grayDark, fontSize: 15),
           ),
         ],
       ),

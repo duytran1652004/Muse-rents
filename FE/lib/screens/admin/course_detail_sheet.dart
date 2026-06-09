@@ -8,14 +8,12 @@ class CourseDetailSheet extends StatefulWidget {
   final Map<String, dynamic> course;
   final String baseUrl;
   final VoidCallback onEdit;
-  final Function(int, String) onStatusChange;
 
   const CourseDetailSheet({
     super.key,
     required this.course,
     required this.baseUrl,
     required this.onEdit,
-    required this.onStatusChange,
   });
 
   @override
@@ -63,7 +61,6 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final course = widget.course;
-    final status = course['status'] ?? 'inactive';
     final imageUrl = course['image_url'];
 
     return Container(
@@ -153,35 +150,7 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Status section
-                  const Text(
-                    'Trạng thái khóa học',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: RentsColors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _statusToggle(
-                        'active',
-                        'Đang mở',
-                        RentsColors.accentGreen,
-                        status,
-                      ),
-                      const SizedBox(width: 8),
-                      _statusToggle(
-                        'inactive',
-                        'Tạm dừng',
-                        RentsColors.accentOrange,
-                        status,
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
+
                   const Text(
                     'Mô tả',
                     style: TextStyle(
@@ -430,41 +399,7 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
     );
   }
 
-  Widget _statusToggle(
-    String value,
-    String label,
-    Color color,
-    String current,
-  ) {
-    final isSelected = current == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          widget.onStatusChange(widget.course['id'], value);
-          Navigator.pop(context);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? color : color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color, width: isSelected ? 0 : 1),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : color,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   String _courseDuration(Map<String, dynamic> course) {
     final duration = (course['duration'] ?? '').toString().trim();

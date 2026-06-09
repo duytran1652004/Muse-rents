@@ -96,8 +96,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
       } else if (mounted) {
         setState(() => _isLoading = false);
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không kết nối được server, vui lòng thử lại! (Server có thể đang khởi động)')),
+        );
+      }
     }
   }
 
@@ -114,8 +119,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
       } else if (mounted) {
         setState(() => _isLoadingClasses = false);
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingClasses = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingClasses = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không kết nối được server, vui lòng thử lại! (Server có thể đang khởi động)')),
+        );
+      }
     }
   }
 
