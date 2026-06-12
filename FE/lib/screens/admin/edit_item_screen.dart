@@ -366,7 +366,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
                   _buildInput(controller: _descriptionController, label: 'Giới thiệu / Kinh nghiệm', icon: Icons.description, maxLines: 3),
                 ],
 
-                if (widget.type == 'student') ...[
+                if (widget.type == 'student' && !_isEditMode) ...[
                   const Text('GÁN KHÓA HỌC (TÙY CHỌN)', style: TextStyle(fontWeight: FontWeight.bold, color: RentsColors.primaryBlue, fontSize: 13)),
                   const SizedBox(height: 12),
                   _buildClassDropdown(),

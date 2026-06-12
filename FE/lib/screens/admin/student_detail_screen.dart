@@ -368,6 +368,13 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                   ),
                 ),
               ),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline, color: RentsColors.primaryBlue, size: 22),
+                onPressed: _showAddEnrollmentSheet,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
               Text(
                 '${_enrollments.length} khóa',
                 style: const TextStyle(color: RentsColors.grayDark, fontSize: 13, fontWeight: FontWeight.w600),
@@ -762,30 +769,49 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) {
           if (loadingClasses) {
-            ApiService.get('/classes').then((res) {
-              if (res.statusCode == 200) {
-                final data = json.decode(res.body);
-                if (data is List && data.isNotEmpty) {
-                  setSheetState(() {
-                    classes = data;
-                    loadingClasses = false;
-                  });
-                } else {
-                  // Fallback to courses
-                  ApiService.get('/courses').then((courseRes) {
-                    if (courseRes.statusCode == 200) {
-                      setSheetState(() {
-                        classes = (json.decode(courseRes.body) as List).map((c) => {
-                          ...c,
-                          'class_name': c['name'],
-                        }).toList();
-                        loadingClasses = false;
-                      });
-                    } else {
-                      setSheetState(() => loadingClasses = false);
-                    }
-                  });
+            Future.wait([
+              ApiService.get('/classes'),
+              ApiService.get('/courses')
+            ]).then((responses) {
+              final classRes = responses[0];
+              final courseRes = responses[1];
+              
+              List<dynamic> combined = [];
+              if (classRes.statusCode == 200) {
+                final data = json.decode(classRes.body);
+                if (data is List) {
+                  combined.addAll(data.map((c) => {
+                    ...c,
+                    'unique_id': 'class_${c['id']}',
+                    'display_name': c['class_name'] ?? c['name'] ?? ''
+                  }));
                 }
+              }
+              if (courseRes.statusCode == 200) {
+                final data = json.decode(courseRes.body);
+                if (data is List) {
+                  combined.addAll(data.map((c) => {
+                    ...c,
+                    'unique_id': 'course_${c['id']}',
+                    'display_name': c['name'] ?? '',
+                    'class_name': c['name']
+                  }));
+                }
+              }
+
+              // Filter out already enrolled
+              final enrolledUids = _enrollments.map((e) {
+                if (e['class_id'] != null) return 'class_${e['class_id']}';
+                return 'course_${e['course_id']}';
+              }).toSet();
+              
+              combined = combined.where((c) => !enrolledUids.contains(c['unique_id'])).toList();
+
+              if (context.mounted) {
+                setSheetState(() {
+                  classes = combined;
+                  loadingClasses = false;
+                });
               }
             });
           }
@@ -838,7 +864,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                               (courseClass) => DropdownMenuItem(
                                 value: courseClass as Map<String, dynamic>,
                                 child: Text(
-                                  (courseClass['class_name'] ?? 'Lớp học')
+                                  (courseClass['display_name'] ?? courseClass['class_name'] ?? 'Lớp học')
                                       .toString(),
                                 ),
                               ),
@@ -898,7 +924,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                     onPressed: selectedClass == null
                         ? null
                         : () async {
-                            final isClass = selectedClass!.containsKey('course_id');
+                            final isClass = selectedClass!.containsKey('unique_id') && selectedClass!['unique_id'].toString().startsWith('class_');
                             final res = await ApiService.post('/enrollments', {
                               'student_id': _studentData['id'],
                               if (isClass) 'class_id': selectedClass!['id'] else 'course_id': selectedClass!['id'],
