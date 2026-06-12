@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
+import '../../widgets/notification_button.dart';
 
 class PaymentManagementScreen extends StatefulWidget {
   const PaymentManagementScreen({super.key});
@@ -346,11 +347,17 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
     return Scaffold(
       backgroundColor: RentsColors.bgLightBlue,
       appBar: AppBar(
-        title: const Text('QUẢN LÝ THANH TOÁN', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
         centerTitle: true,
-        backgroundColor: RentsColors.primaryBlue,
+        backgroundColor: RentsColors.bgLightBlue,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        leading: const NotificationButton(),
+        title: const Text('QUẢN LÝ THANH TOÁN', style: TextStyle(color: RentsColors.black, fontWeight: FontWeight.w800, fontSize: 20)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue),
+            onPressed: _fetchEnrollments,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: RentsColors.primaryBlue))

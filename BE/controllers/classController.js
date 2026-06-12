@@ -21,7 +21,7 @@ exports.getAllClasses = async (req, res) => {
     } else if (req.user && req.user.role === 'student') {
       const [student] = await db.query('SELECT id FROM students WHERE user_id = ?', [req.user.id]);
       if (student.length > 0) {
-        where.push('c.id IN (SELECT class_id FROM class_enrollments WHERE student_id = ? AND status != "dropped" AND class_id IS NOT NULL)');
+        where.push("c.id IN (SELECT class_id FROM class_enrollments WHERE student_id = ? AND status != 'dropped' AND class_id IS NOT NULL)");
         params.push(student[0].id);
       } else {
         where.push('1 = 0');
@@ -43,7 +43,7 @@ exports.getAllClasses = async (req, res) => {
         u.full_name AS created_by_name,
         (SELECT COUNT(id) FROM class_enrollments WHERE class_id = c.id AND status != 'dropped') AS current_students,
         (SELECT GROUP_CONCAT(s.name SEPARATOR ', ') FROM class_enrollments ce JOIN students s ON ce.student_id = s.id WHERE ce.class_id = c.id AND ce.status != 'dropped') AS student_names,
-        (SELECT CONCAT('[', IFNULL(GROUP_CONCAT(JSON_OBJECT('id', s.id, 'enrollment_id', ce.id, 'name', s.name, 'phone', IFNULL(s.phone, ''), 'email', IFNULL(s.email, ''), 'status', IFNULL(s.status, ''), 'review', IFNULL(ce.review, ''))), ''), ']') FROM class_enrollments ce JOIN students s ON ce.student_id = s.id WHERE ce.class_id = c.id AND ce.status != 'dropped') AS students_json
+        (SELECT CONCAT('[', IFNULL(GROUP_CONCAT(JSON_OBJECT('id', s.id, 'enrollment_id', ce.id, 'name', s.name, 'phone', IFNULL(s.phone, ''), 'email', IFNULL(s.email, ''), 'status', IFNULL(s.status, ''), 'review', IFNULL(ce.review, ''), 'student_review', IFNULL(ce.student_review, ''))), ''), ']') FROM class_enrollments ce JOIN students s ON ce.student_id = s.id WHERE ce.class_id = c.id AND ce.status != 'dropped') AS students_json
       FROM classes c
       LEFT JOIN courses co ON c.course_id = co.id
       LEFT JOIN rooms r ON c.room_id = r.id

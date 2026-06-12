@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
+import '../../widgets/notification_button.dart';
 
 class RevenueReportScreen extends StatefulWidget {
   const RevenueReportScreen({super.key});
@@ -252,16 +253,25 @@ class _RevenueReportScreenState extends State<RevenueReportScreen> with SingleTi
     return Scaffold(
       backgroundColor: RentsColors.bgLightBlue,
       appBar: AppBar(
-        title: const Text('BÁO CÁO DOANH THU', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
         centerTitle: true,
-        backgroundColor: RentsColors.primaryBlue,
+        backgroundColor: RentsColors.bgLightBlue,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        leading: const NotificationButton(),
+        title: const Text('BÁO CÁO DOANH THU', style: TextStyle(color: RentsColors.black, fontWeight: FontWeight.w800, fontSize: 20)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue),
+            onPressed: () {
+              _fetchRoomReport();
+              _fetchCourseReport();
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
+          labelColor: RentsColors.primaryBlue,
+          unselectedLabelColor: RentsColors.grayDark,
+          indicatorColor: RentsColors.primaryBlue,
           indicatorWeight: 3,
           labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
           tabs: const [

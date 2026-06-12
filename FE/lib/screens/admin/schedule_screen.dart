@@ -2333,8 +2333,23 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                                 border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                               ),
                               child: Text(
-                                'Nhận xét: ${student['review']}',
+                                'GV nhận xét: ${student['review']}',
                                 style: const TextStyle(fontSize: 12, color: Colors.orange, fontStyle: FontStyle.italic),
+                              ),
+                            )
+                          ],
+                          if (student['student_review'] != null && student['student_review'].toString().isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: RentsColors.primaryBlue.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: RentsColors.primaryBlue.withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                'HV nhận xét: ${student['student_review']}',
+                                style: const TextStyle(fontSize: 12, color: RentsColors.primaryBlue, fontStyle: FontStyle.italic),
                               ),
                             )
                           ]

@@ -84,6 +84,8 @@ CREATE TABLE IF NOT EXISTS class_enrollments (
   student_id INT,
   enrollment_date DATE,
   status ENUM('active', 'completed', 'dropped') DEFAULT 'active',
+  review TEXT,
+  student_review TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (class_id) REFERENCES classes(id),
   FOREIGN KEY (student_id) REFERENCES students(id)

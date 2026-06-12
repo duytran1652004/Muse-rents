@@ -187,6 +187,8 @@ class _SettingsScreenState extends State<SettingsScreen>
         return '💼 Nhân viên';
       case 'teacher':
         return '👨‍🏫 Giáo viên';
+      case 'student':
+        return '🎓 Học viên';
       default:
         return '💼 Nhân viên';
     }
@@ -432,8 +434,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                             const SizedBox(height: 16),
                           ],
 
-                          // Management options (always visible)
-                          if (!_isEditMode) ...[
+                          // Management options (only for non-students)
+                          if (!_isEditMode && role != 'student') ...[
                             if (role != 'teacher') ...[
                               _buildSectionCard(
                                 title: 'QUẢN LÝ NỘI DUNG',
@@ -493,6 +495,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               ),
                               const SizedBox(height: 16),
                             ],
+                          ],
+                          // Logout always visible
+                          if (!_isEditMode) ...[
                             _buildSectionCard(
                               title: 'HỆ THỐNG',
                               icon: Icons.settings_rounded,

@@ -43,7 +43,11 @@ exports.getEnrollments = async (req, res) => {
         s.name as student_name,
         s.phone as student_phone,
         s.status as student_status,
-        u2.full_name as created_by_name
+        u2.full_name as created_by_name,
+        ce.review as review,
+        ce.student_review as student_review,
+        ce.payment_date_1 as payment_date_1,
+        ce.payment_date_2 as payment_date_2
       FROM class_enrollments ce
       LEFT JOIN classes c ON ce.class_id = c.id
       LEFT JOIN courses co ON ce.course_id = co.id OR c.course_id = co.id
@@ -137,13 +141,26 @@ exports.createEnrollment = async (req, res) => {
 // PUT /api/enrollments/:id
 exports.updateEnrollment = async (req, res) => {
   try {
-    const { status, review } = req.body;
+    const { status, review, student_review } = req.body;
     const [enrollment] = await db.query('SELECT student_id, status FROM class_enrollments WHERE id = ?', [req.params.id]);
     
     if (enrollment.length === 0) {
       return res.status(404).json({ message: 'Enrollment not found' });
     }
 
+    // Students can only update their own enrollment's student_review
+    if (req.user && req.user.role === 'student') {
+      const [student] = await db.query('SELECT id FROM students WHERE user_id = ?', [req.user.id]);
+      if (student.length === 0 || student[0].id !== enrollment[0].student_id) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      if (student_review !== undefined) {
+        await db.query('UPDATE class_enrollments SET student_review = ? WHERE id = ?', [student_review, req.params.id]);
+      }
+      return res.json({ message: 'Enrollment updated' });
+    }
+
+    // Admin/staff: update review (teacher note)
     if (review !== undefined) {
       await db.query('UPDATE class_enrollments SET review = ? WHERE id = ?', [review, req.params.id]);
     }

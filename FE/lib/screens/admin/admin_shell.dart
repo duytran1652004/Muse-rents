@@ -11,6 +11,7 @@ import 'course_management_screen.dart';
 import 'settings_screen.dart';
 import 'notifications_screen.dart';
 import 'student_dashboard_screen.dart';
+import 'student_home_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -29,6 +30,7 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
     const CourseManagementScreen(),
     SettingsScreen(onNavigate: (i) => setState(() => _selectedIndex = i)),
     const StudentDashboardScreen(),
+    const StudentHomeScreen(),
   ];
 
   int _lastUnreadCount = 0;
@@ -132,8 +134,8 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
         if (isTeacher) {
           currentScreen = _selectedIndex == 1 ? _screens[4] : _screens[0];
         } else if (isStudent) {
-          if (_selectedIndex == 0) currentScreen = _screens[0];
-          else if (_selectedIndex == 1) currentScreen = _screens[5]; // StudentDashboardScreen
+          if (_selectedIndex == 0) currentScreen = _screens[5]; // StudentDashboardScreen
+          else if (_selectedIndex == 1) currentScreen = _screens[3]; // CourseManagementScreen
           else currentScreen = _screens[4]; // SettingsScreen
         } else {
           currentScreen = _screens[_selectedIndex];
@@ -173,8 +175,8 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
                 _buildNavItem(0, Icons.calendar_month_rounded, Icons.calendar_month, 'Lớp học'),
                 _buildNavItem(1, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
               ] : isStudent ? [
-                _buildNavItem(0, Icons.calendar_month_rounded, Icons.calendar_month, 'Lớp học'),
-                _buildNavItem(1, Icons.school_rounded, Icons.school_outlined, 'Khóa học'),
+                _buildNavItem(0, Icons.school_rounded, Icons.school_outlined, 'Khóa của tôi'),
+                _buildNavItem(1, Icons.library_books_rounded, Icons.library_books_outlined, 'Tham khảo'),
                 _buildNavItem(2, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
               ] : [
                 _buildNavItem(0, Icons.calendar_month_rounded, Icons.calendar_month, 'Lịch tập'),

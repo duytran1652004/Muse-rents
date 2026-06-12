@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
 import '../../utils/booking_date_utils.dart';
+import '../../utils/globals.dart';
 
 class CourseDetailSheet extends StatefulWidget {
   final Map<String, dynamic> course;
@@ -121,13 +122,14 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
                           ),
                         ),
                       ),
-                      IconButton(
-                        onPressed: widget.onEdit,
-                        icon: const Icon(
-                          Icons.edit_outlined,
-                          color: RentsColors.primaryBlue,
+                      if (globalRole.value == 'admin')
+                        IconButton(
+                          onPressed: widget.onEdit,
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            color: RentsColors.primaryBlue,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -170,94 +172,96 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
                   ),
 
                   const SizedBox(height: 30),
-                  Row(
-                    children: [
-                      const Text(
-                        'Danh sách học viên',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: RentsColors.black,
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _students.isNotEmpty
-                              ? RentsColors.accentGreen.withValues(alpha: 0.12)
-                              : RentsColors.accentOrange.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          _students.isNotEmpty
-                              ? '${_students.length} học viên'
-                              : 'Chưa có học viên',
+                  if (globalRole.value != 'student') ...[
+                    Row(
+                      children: [
+                        const Text(
+                          'Danh sách học viên',
                           style: TextStyle(
-                            color: _students.isNotEmpty
-                                ? RentsColors.accentGreen
-                                : RentsColors.accentOrange,
                             fontWeight: FontWeight.w700,
-                            fontSize: 12,
+                            fontSize: 15,
+                            color: RentsColors.black,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (_isLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  else if (_students.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: RentsColors.bgLightBlue,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.person_off_outlined,
-                            color: RentsColors.accentOrange,
-                            size: 20,
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
                           ),
-                          SizedBox(width: 10),
-                          Text(
-                            'Chưa có học viên nào tham gia',
-                            style: TextStyle(color: RentsColors.grayDark),
+                          decoration: BoxDecoration(
+                            color: _students.isNotEmpty
+                                ? RentsColors.accentGreen.withValues(alpha: 0.12)
+                                : RentsColors.accentOrange.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                        ],
-                      ),
-                    )
-                  else
-                    Container(
-                      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
-                      decoration: BoxDecoration(
-                        color: RentsColors.bgLightBlue.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: RawScrollbar(
-                        thumbColor: RentsColors.primaryBlue.withValues(alpha: 0.3),
-                        radius: const Radius.circular(20),
-                        thickness: 4,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(8),
-                          shrinkWrap: true,
-                          itemCount: _students.length,
-                          itemBuilder: (context, index) {
-                            return _buildStudentCard(_students[index]);
-                          },
+                          child: Text(
+                            _students.isNotEmpty
+                                ? '${_students.length} học viên'
+                                : 'Chưa có học viên',
+                            style: TextStyle(
+                              color: _students.isNotEmpty
+                                  ? RentsColors.accentGreen
+                                  : RentsColors.accentOrange,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
+                    const SizedBox(height: 10),
+                    if (_isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    else if (_students.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: RentsColors.bgLightBlue,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.person_off_outlined,
+                              color: RentsColors.accentOrange,
+                              size: 20,
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Chưa có học viên nào tham gia',
+                              style: TextStyle(color: RentsColors.grayDark),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
+                        decoration: BoxDecoration(
+                          color: RentsColors.bgLightBlue.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: RawScrollbar(
+                          thumbColor: RentsColors.primaryBlue.withValues(alpha: 0.3),
+                          radius: const Radius.circular(20),
+                          thickness: 4,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(8),
+                            shrinkWrap: true,
+                            itemCount: _students.length,
+                            itemBuilder: (context, index) {
+                              return _buildStudentCard(_students[index]);
+                            },
+                          ),
+                        ),
+                      ),
+                  ],
                 ],
               ),
             ),
@@ -474,6 +478,36 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
                     ),
                   ],
                 ),
+                if (student['review'] != null && student['review'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      'GV nhận xét: ${student['review']}',
+                      style: const TextStyle(fontSize: 12, color: Colors.orange, fontStyle: FontStyle.italic),
+                    ),
+                  )
+                ],
+                if (student['student_review'] != null && student['student_review'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: RentsColors.primaryBlue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: RentsColors.primaryBlue.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      'HV nhận xét: ${student['student_review']}',
+                      style: const TextStyle(fontSize: 12, color: RentsColors.primaryBlue, fontStyle: FontStyle.italic),
+                    ),
+                  )
+                ]
               ],
             ),
           ),
