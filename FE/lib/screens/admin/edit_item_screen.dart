@@ -129,7 +129,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
           combined.addAll(data.map((c) => {
             ...c,
             'unique_id': 'class_${c['id']}',
-            'display_name': 'Lớp: ${c['class_name'] ?? c['name'] ?? ''}'
+            'display_name': c['class_name'] ?? c['name'] ?? ''
           }));
         }
       }
@@ -139,7 +139,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
           combined.addAll(data.map((c) => {
             ...c,
             'unique_id': 'course_${c['id']}',
-            'display_name': 'Khóa: ${c['name'] ?? ''}',
+            'display_name': c['name'] ?? '',
             'class_name': c['name']
           }));
         }
