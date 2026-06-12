@@ -476,7 +476,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                     ],
                   ),
                 ),
-                if (status != 'completed')
+                if (statusText != 'Hoàn thành' && statusText != 'Đang học')
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: RentsColors.accentRed, size: 20),
                     onPressed: () => _deleteEnrollment(enrollment['id']),
