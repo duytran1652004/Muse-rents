@@ -77,6 +77,7 @@ exports.getRevenueReport = async (req, res) => {
       SELECT 
         ce.id, ce.enrollment_date, ce.status,
         ce.payment_type, ce.payment_status_1, ce.payment_status_2,
+        ce.payment_date_1, ce.payment_date_2,
         c.class_name, co.name as course_name, co.image_url as course_image_url, IFNULL(co.price, c.price_per_class) as price,
         s.name as student_name
       FROM class_enrollments ce
@@ -86,24 +87,42 @@ exports.getRevenueReport = async (req, res) => {
       WHERE ce.status IN ('confirmed', 'active', 'completed')
       AND co.id IS NOT NULL
       AND (c.status IS NULL OR c.status != 'cancelled')
-      AND ${enrollmentWhere.replace('ce.enrollment_date', 'ce.enrollment_date')}
-      ORDER BY ce.enrollment_date DESC
-    `, queryParams);
+    `);
     
     let courseRevenue = 0;
+    const filterPrefix = type === 'day' ? date : date.substring(0, 7);
+    const revenueEvents = [];
+
     enrollmentData.forEach(e => {
       const fullPrice = parseFloat(e.price || 0);
-      let paid = 0;
-      if (e.payment_type === '100%') {
-        if (e.payment_status_1 === 'completed') paid += fullPrice;
-      } else { // 50%
-        if (e.payment_status_1 === 'completed') paid += fullPrice / 2;
-        if (e.payment_status_2 === 'completed') paid += fullPrice / 2;
+      
+      const pDate1Str = e.payment_date_1 ? new Date(new Date(e.payment_date_1).getTime() + 7*3600*1000).toISOString().substring(0, 10) : null;
+      const pDate2Str = e.payment_date_2 ? new Date(new Date(e.payment_date_2).getTime() + 7*3600*1000).toISOString().substring(0, 10) : null;
+
+      if (e.payment_status_1 === 'completed' && pDate1Str && pDate1Str.startsWith(filterPrefix)) {
+        let amt = e.payment_type === '100%' ? fullPrice : fullPrice / 2;
+        courseRevenue += amt;
+        revenueEvents.push({
+          ...e,
+          paid_amount: amt,
+          enrollment_date: e.payment_date_1, // use payment date for display
+          payment_phase: e.payment_type === '100%' ? '100%' : 'Đợt 1 (50%)'
+        });
       }
-      courseRevenue += paid;
-      e.paid_amount = paid;
+
+      if (e.payment_type === '50%' && e.payment_status_2 === 'completed' && pDate2Str && pDate2Str.startsWith(filterPrefix)) {
+        courseRevenue += fullPrice / 2;
+        revenueEvents.push({
+          ...e,
+          paid_amount: fullPrice / 2,
+          enrollment_date: e.payment_date_2, // use payment date for display
+          payment_phase: 'Đợt 2 (50%)'
+        });
+      }
     });
-    const courseRegistrations = enrollmentData.length;
+
+    revenueEvents.sort((a, b) => new Date(b.enrollment_date) - new Date(a.enrollment_date));
+    const courseRegistrations = revenueEvents.length;
 
     res.json({
       roomRevenue: roomRevenue,
@@ -111,7 +130,7 @@ exports.getRevenueReport = async (req, res) => {
       courseRevenue: courseRevenue,
       totalRevenue: roomRevenue + courseRevenue,
       bookings: bookingData,
-      enrollments: enrollmentData
+      enrollments: revenueEvents
     });
 
   } catch (err) {

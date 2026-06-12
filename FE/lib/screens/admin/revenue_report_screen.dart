@@ -237,6 +237,16 @@ class _RevenueReportScreenState extends State<RevenueReportScreen> with SingleTi
     return '${value.replaceAllMapped(reg, mathFunc)} ₫';
   }
 
+  String _formatDateOnly(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(dateStr).toLocal();
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (e) {
+      return dateStr.split('T')[0];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -504,7 +514,7 @@ class _RevenueReportScreenState extends State<RevenueReportScreen> with SingleTi
               ),
               const SizedBox(height: 4),
               Text(
-                (b['booking_date'] ?? '').split('T')[0],
+                _formatDateOnly(b['booking_date']),
                 style: const TextStyle(color: RentsColors.black, fontSize: 13, fontWeight: FontWeight.bold),
               )
             ],
@@ -562,9 +572,16 @@ class _RevenueReportScreenState extends State<RevenueReportScreen> with SingleTi
                 '+${_formatCurrency(double.tryParse(e['paid_amount']?.toString() ?? e['price']?.toString() ?? '0') ?? 0)}',
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFFFF6B35)),
               ),
+              if (e['payment_phase'] != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  e['payment_phase'],
+                  style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ],
               const SizedBox(height: 4),
               Text(
-                (e['enrollment_date'] ?? '').split('T')[0],
+                _formatDateOnly(e['enrollment_date']),
                 style: const TextStyle(color: RentsColors.black, fontSize: 13, fontWeight: FontWeight.bold),
               )
             ],
