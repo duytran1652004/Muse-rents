@@ -214,7 +214,7 @@ exports.updatePayment = async (req, res) => {
     const oldStatus1 = enrollment[0].payment_status_1 === 'completed';
     const oldStatus2 = enrollment[0].payment_status_2 === 'completed';
     let paidPhase = '';
-    const price = enrollment[0].course_price || enrollment[0].class_price || 0;
+    const price = Number(enrollment[0].course_price || enrollment[0].class_price || 0);
     let amountPaid = 0;
 
     let updates = [];

@@ -75,8 +75,10 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
 
   void _showPaymentDialog(dynamic enrollment) {
     String currentType = enrollment['payment_type'] ?? '100%';
-    bool status1 = enrollment['payment_status_1'] == 'completed';
-    bool status2 = enrollment['payment_status_2'] == 'completed';
+    bool originalStatus1 = enrollment['payment_status_1'] == 'completed';
+    bool originalStatus2 = enrollment['payment_status_2'] == 'completed';
+    bool status1 = originalStatus1;
+    bool status2 = originalStatus2;
     bool isSaving = false;
     double price = double.tryParse(enrollment['course_price']?.toString() ?? enrollment['price_per_class']?.toString() ?? '0') ?? 0;
 
@@ -129,7 +131,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                           groupValue: currentType,
                           activeColor: RentsColors.primaryBlue,
                           contentPadding: EdgeInsets.zero,
-                          onChanged: (val) {
+                          onChanged: originalStatus1 ? null : (val) {
                             if (val != null) setModalState(() => currentType = val);
                           },
                         ),
@@ -141,7 +143,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                           groupValue: currentType,
                           activeColor: RentsColors.primaryBlue,
                           contentPadding: EdgeInsets.zero,
-                          onChanged: (val) {
+                          onChanged: originalStatus1 ? null : (val) {
                             if (val != null) setModalState(() => currentType = val);
                           },
                         ),
@@ -152,12 +154,19 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                   const Text('Trạng thái:', style: TextStyle(fontWeight: FontWeight.w700, color: RentsColors.grayDark)),
                   const SizedBox(height: 8),
                   SwitchListTile(
-                    title: const Text('Thanh toán đợt 1', style: TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(currentType == '100%' ? 'Xác nhận đã thu toàn bộ' : 'Thanh toán đợt 1', style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text('Số tiền: $amount1Text', style: const TextStyle(color: RentsColors.primaryBlue, fontWeight: FontWeight.bold)),
                     value: status1,
                     activeColor: const Color(0xFF2ECC71),
                     contentPadding: EdgeInsets.zero,
-                    onChanged: (val) => setModalState(() => status1 = val),
+                    onChanged: originalStatus1 ? null : (val) {
+                      setModalState(() {
+                        status1 = val;
+                        if (!status1) {
+                          status2 = false; // Tự động bỏ check đợt 2 nếu đợt 1 chưa thanh toán
+                        }
+                      });
+                    },
                   ),
                   if (currentType == '50%')
                     SwitchListTile(
@@ -166,7 +175,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                       value: status2,
                       activeColor: const Color(0xFF2ECC71),
                       contentPadding: EdgeInsets.zero,
-                      onChanged: (val) => setModalState(() => status2 = val),
+                      onChanged: (originalStatus2 || !status1) ? null : (val) => setModalState(() => status2 = val),
                     ),
                   const SizedBox(height: 24),
                   SizedBox(
@@ -204,7 +213,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                       ),
                       child: isSaving
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('LƯU THAY ĐỔI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          : const Text('XÁC NHẬN THANH TOÁN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],

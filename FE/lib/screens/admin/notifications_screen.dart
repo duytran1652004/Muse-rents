@@ -187,7 +187,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (notif['class_info'] != null) {
       return _buildClassNotifCard(notif);
     }
+    if (notif['type'] == 'payment') {
+      return _buildPaymentNotifCard(notif);
+    }
 
+    return _buildRegularCard(notif);
+  }
+
+  Widget _buildRegularCard(Map<String, dynamic> notif) {
     final isRead = notif['is_read'] == true || notif['is_read'] == 1;
     final type = notif['type'] ?? 'alert';
     final typeColor = _typeColor(type);
@@ -286,6 +293,197 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(color: RentsColors.accentRed, borderRadius: BorderRadius.circular(14)),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) => _deleteNotification(notif['id']),
+      child: card,
+    );
+  }
+
+  Widget _buildPaymentNotifCard(Map<String, dynamic> notif) {
+    final msg = notif['message'] ?? '';
+    final lines = msg.split('\n');
+    
+    // Fallback if it is an old flat string format
+    if (lines.length < 4) {
+      return _buildRegularCard(notif);
+    }
+
+    String studentName = 'Học viên';
+    String courseName = 'Khóa học';
+    String phase = '';
+    String amount = '';
+    
+    String timeStr = '';
+    
+    for (var line in lines) {
+      if (line.startsWith('Học viên: ')) studentName = line.replaceFirst('Học viên: ', '');
+      if (line.startsWith('Khóa học: ')) courseName = line.replaceFirst('Khóa học: ', '');
+      if (line.startsWith('Thanh toán: ')) phase = line.replaceFirst('Thanh toán: ', '');
+      if (line.startsWith('Số tiền: ')) amount = line.replaceFirst('Số tiền: ', '');
+      if (line.startsWith('Thời gian: ')) timeStr = line.replaceFirst('Thời gian: ', '');
+    }
+
+    final isRead = notif['is_read'] == true || notif['is_read'] == 1;
+
+    final card = GestureDetector(
+      onTap: () {
+        if (_isSelectionMode) {
+          setState(() {
+            if (_selectedIds.contains(notif['id'])) _selectedIds.remove(notif['id']);
+            else _selectedIds.add(notif['id']);
+          });
+        } else {
+          setState(() {
+            notif['is_read'] = 1;
+          });
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isRead ? Colors.white : RentsColors.primaryBlue.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isRead ? Colors.transparent : RentsColors.primaryBlue.withValues(alpha: 0.2)),
+          boxShadow: RentsColors.softCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.payments, size: 16, color: RentsColors.primaryBlue),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    notif['title'] ?? 'Xác nhận thanh toán',
+                    style: const TextStyle(color: RentsColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+                Text(_formatDate(notif['created_at']), style: const TextStyle(color: RentsColors.grayDark, fontSize: 12, fontWeight: FontWeight.bold)),
+                if (!isRead) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(color: RentsColors.primaryBlue, shape: BoxShape.circle),
+                  ),
+                ]
+              ],
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, color: RentsColors.grayLight),
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: RentsColors.bgLightBlue,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.receipt_long, color: RentsColors.primaryBlue, size: 28),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              courseName,
+                              style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.bold, fontSize: 15),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: RentsColors.accentGreen.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              phase,
+                              style: const TextStyle(color: RentsColors.accentGreen, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.person, size: 14, color: RentsColors.grayDark),
+                          const SizedBox(width: 6),
+                          Text(studentName, style: const TextStyle(color: RentsColors.grayDark, fontSize: 13, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.attach_money, size: 14, color: RentsColors.grayDark),
+                          const SizedBox(width: 6),
+                          Text(amount, style: const TextStyle(color: RentsColors.accentOrange, fontSize: 14, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      if (timeStr.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 14, color: RentsColors.grayDark),
+                            const SizedBox(width: 6),
+                            Text(timeStr, style: const TextStyle(color: RentsColors.grayDark, fontSize: 13)),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (_isSelectionMode) {
+      final isSelected = _selectedIds.contains(notif['id']);
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            Checkbox(
+              value: isSelected,
+              activeColor: RentsColors.primaryBlue,
+              onChanged: (val) {
+                setState(() {
+                  if (val == true) _selectedIds.add(notif['id']);
+                  else _selectedIds.remove(notif['id']);
+                });
+              },
+            ),
+            Expanded(child: card),
+          ],
+        ),
+      );
+    }
+
+    return Dismissible(
+      key: ValueKey(notif['id']),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(color: RentsColors.accentRed, borderRadius: BorderRadius.circular(20)),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       onDismissed: (_) => _deleteNotification(notif['id']),
