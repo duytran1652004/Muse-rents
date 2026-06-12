@@ -458,6 +458,12 @@ class _EditItemScreenState extends State<EditItemScreen> {
               label: Text(c['display_name'] ?? c['class_name'] ?? 'Lớp học'),
               selected: isSelected,
               onSelected: (selected) {
+                if (_isEditMode && !selected && _initialSelectedIds.contains(uid)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Không thể hủy lớp/khóa học đã tham gia!'), backgroundColor: RentsColors.accentRed),
+                  );
+                  return;
+                }
                 setState(() {
                   if (selected) {
                     _selectedIds.add(uid);
