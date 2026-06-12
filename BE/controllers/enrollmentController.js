@@ -197,7 +197,9 @@ exports.updatePayment = async (req, res) => {
     const { payment_type, payment_status_1, payment_status_2 } = req.body;
     
     const [enrollment] = await db.query(`
-      SELECT ce.id, s.name as student_name, co.name as course_name, c.class_name as class_name
+      SELECT ce.id, s.name as student_name, co.name as course_name, c.class_name as class_name,
+             co.price as course_price, c.price_per_class as class_price,
+             ce.payment_status_1, ce.payment_status_2
       FROM class_enrollments ce
       LEFT JOIN students s ON ce.student_id = s.id
       LEFT JOIN courses co ON ce.course_id = co.id
@@ -208,6 +210,12 @@ exports.updatePayment = async (req, res) => {
     if (enrollment.length === 0) {
       return res.status(404).json({ message: 'Enrollment not found' });
     }
+
+    const oldStatus1 = enrollment[0].payment_status_1 === 'completed';
+    const oldStatus2 = enrollment[0].payment_status_2 === 'completed';
+    let paidPhase = '';
+    const price = enrollment[0].course_price || enrollment[0].class_price || 0;
+    let amountPaid = 0;
 
     let updates = [];
     let params = [];
@@ -223,7 +231,7 @@ exports.updatePayment = async (req, res) => {
       params.push(payment_status_1);
       if (payment_status_1 === 'completed') {
         updates.push('payment_date_1 = NOW()');
-        statusChanged = true;
+        if (!oldStatus1) statusChanged = true;
       } else {
         updates.push('payment_date_1 = NULL');
       }
@@ -234,7 +242,7 @@ exports.updatePayment = async (req, res) => {
       params.push(payment_status_2);
       if (payment_status_2 === 'completed') {
         updates.push('payment_date_2 = NOW()');
-        statusChanged = true;
+        if (!oldStatus2) statusChanged = true;
       } else {
         updates.push('payment_date_2 = NULL');
       }
@@ -246,13 +254,42 @@ exports.updatePayment = async (req, res) => {
     }
     
     if (statusChanged) {
-      const d = enrollment[0];
-      const cName = d.course_name || d.class_name || 'Khóa học';
-      const msg = `Học viên ${d.student_name} đã xác nhận thanh toán thành công cho ${cName}.`;
-      await db.query(
-        'INSERT INTO notifications (type, title, message, related_id) VALUES (?, ?, ?, ?)',
-        ['payment', 'Xác nhận thanh toán', msg, req.params.id]
-      );
+      const newStatus1 = payment_status_1 === 'completed';
+      const newStatus2 = payment_status_2 === 'completed';
+
+      if (payment_type === '100%' && newStatus1 && !oldStatus1) {
+        paidPhase = 'toàn bộ học phí';
+        amountPaid = price;
+      } else if (payment_type === '50%') {
+        if (newStatus1 && !oldStatus1 && newStatus2 && !oldStatus2) {
+           paidPhase = 'cả đợt 1 & đợt 2';
+           amountPaid = price;
+        } else if (newStatus1 && !oldStatus1) {
+           paidPhase = 'đợt 1 (50%)';
+           amountPaid = price / 2;
+        } else if (newStatus2 && !oldStatus2) {
+           paidPhase = 'đợt 2 (50%)';
+           amountPaid = price / 2;
+        }
+      }
+
+      if (paidPhase !== '') {
+        const d = enrollment[0];
+        const cName = d.course_name || d.class_name || 'Khóa học';
+        
+        // Format currency
+        const formattedAmount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amountPaid);
+        
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + now.toLocaleDateString('vi-VN');
+        
+        const msg = `Học viên ${d.student_name} đã thanh toán ${paidPhase} cho ${cName}. Số tiền: ${formattedAmount}. Thời gian: ${timeStr}.`;
+        
+        await db.query(
+          'INSERT INTO notifications (type, title, message, related_id) VALUES (?, ?, ?, ?)',
+          ['payment', 'Xác nhận thanh toán', msg, req.params.id]
+        );
+      }
     }
 
     res.json({ message: 'Payment updated successfully' });
