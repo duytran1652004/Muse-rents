@@ -287,11 +287,6 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
             },
           ),
           _infoRow(
-            Icons.email_outlined,
-            'Email',
-            _instructorData['email']?.toString() ?? '—',
-          ),
-          _infoRow(
             Icons.event_note_rounded,
             'Ngày đăng ký',
             _formatDate(_instructorData['created_at']),

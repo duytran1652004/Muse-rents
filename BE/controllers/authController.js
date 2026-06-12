@@ -3,19 +3,19 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 exports.register = async (req, res) => {
-  const { full_name, phone, email, password, role } = req.body;
+  const { full_name, phone, username, email, password, role } = req.body;
   try {
     // Check if user exists
-    const [exists] = await pool.query('SELECT id FROM users WHERE phone_number = ? OR email = ?', [phone, email]);
+    const [exists] = await pool.query('SELECT id FROM users WHERE phone_number = ? OR email = ? OR username = ?', [phone, email, username]);
     if (exists.length > 0) {
-      return res.status(400).json({ error: 'Số điện thoại hoặc Email đã tồn tại' });
+      return res.status(400).json({ error: 'Số điện thoại, Email hoặc Tên tài khoản đã tồn tại' });
     }
 
     const assignedRole = role && ['admin', 'staff', 'teacher'].includes(role) ? role : 'staff';
     const hashedPassword = await bcrypt.hash(password, 10);
     const [result] = await pool.query(
-      'INSERT INTO users (full_name, phone_number, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-      [full_name, phone, email, hashedPassword, assignedRole]
+      'INSERT INTO users (full_name, phone_number, username, email, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+      [full_name, phone, username, email, hashedPassword, assignedRole]
     );
 
     const userId = result.insertId;
@@ -38,8 +38,8 @@ exports.login = async (req, res) => {
   const { identifier, password } = req.body;
   try {
     const [users] = await pool.query(
-      'SELECT * FROM users WHERE phone_number = ? OR email = ?',
-      [identifier, identifier]
+      'SELECT * FROM users WHERE phone_number = ? OR email = ? OR username = ?',
+      [identifier, identifier, identifier]
     );
 
     if (users.length === 0) {
@@ -78,7 +78,7 @@ exports.login = async (req, res) => {
 
 exports.getProfile = async (req, res) => {
   try {
-    const [users] = await pool.query('SELECT id, full_name, phone_number, email, role, avatar_image FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await pool.query('SELECT id, full_name, username, phone_number, email, role, avatar_image FROM users WHERE id = ?', [req.user.id]);
     if (users.length === 0) return res.status(404).json({ error: 'User not found' });
     res.json(users[0]);
   } catch (err) {
@@ -87,14 +87,14 @@ exports.getProfile = async (req, res) => {
 };
 
 exports.updateProfile = async (req, res) => {
-  const { full_name, phone, email, current_password, new_password } = req.body;
+  const { full_name, phone, username, email, current_password, new_password } = req.body;
   try {
     const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
     if (users.length === 0) return res.status(404).json({ error: 'User not found' });
 
     const user = users[0];
 
-    // Validate phone/email uniqueness
+    // Validate phone/email/username uniqueness
     if (phone && phone !== user.phone_number) {
       const [existing] = await pool.query('SELECT id FROM users WHERE phone_number = ? AND id != ?', [phone, req.user.id]);
       if (existing.length > 0) return res.status(400).json({ error: 'Số điện thoại đã được sử dụng' });
@@ -102,6 +102,10 @@ exports.updateProfile = async (req, res) => {
     if (email && email !== user.email) {
       const [existing] = await pool.query('SELECT id FROM users WHERE email = ? AND id != ?', [email, req.user.id]);
       if (existing.length > 0) return res.status(400).json({ error: 'Email đã được sử dụng' });
+    }
+    if (username && username !== user.username) {
+      const [existing] = await pool.query('SELECT id FROM users WHERE username = ? AND id != ?', [username, req.user.id]);
+      if (existing.length > 0) return res.status(400).json({ error: 'Tên tài khoản đã được sử dụng' });
     }
 
     // If changing password
@@ -115,11 +119,11 @@ exports.updateProfile = async (req, res) => {
 
     // Update profile fields
     await pool.query(
-      'UPDATE users SET full_name = COALESCE(?, full_name), phone_number = COALESCE(?, phone_number), email = COALESCE(?, email) WHERE id = ?',
-      [full_name || null, phone || null, email || null, req.user.id]
+      'UPDATE users SET full_name = COALESCE(?, full_name), phone_number = COALESCE(?, phone_number), username = COALESCE(?, username), email = COALESCE(?, email) WHERE id = ?',
+      [full_name || null, phone || null, username || null, email || null, req.user.id]
     );
 
-    const [updated] = await pool.query('SELECT id, full_name, phone_number, email, role FROM users WHERE id = ?', [req.user.id]);
+    const [updated] = await pool.query('SELECT id, full_name, username, phone_number, email, role FROM users WHERE id = ?', [req.user.id]);
     res.json({ message: 'Cập nhật thành công', user: updated[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });

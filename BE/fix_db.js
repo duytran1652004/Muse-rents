@@ -43,6 +43,17 @@ async function fixDatabase() {
       await db.query('ALTER TABLE class_enrollments ADD COLUMN end_date DATE AFTER start_date');
     }
 
+    // Check users
+    const [userCols] = await db.query('SHOW COLUMNS FROM users');
+    const userColNames = userCols.map(c => c.Field);
+
+    if (!userColNames.includes('username')) {
+      console.log('Adding username to users...');
+      await db.query('ALTER TABLE users ADD COLUMN username VARCHAR(100) UNIQUE AFTER phone_number');
+      // Migrate existing emails into username if username is null
+      await db.query('UPDATE users SET username = email WHERE username IS NULL AND email IS NOT NULL');
+    }
+
     console.log('Database schema updated successfully!');
     process.exit(0);
   } catch (err) {

@@ -15,6 +15,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   String _selectedRole = 'staff';
@@ -38,6 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         body: json.encode({
           'full_name': _fullNameController.text,
           'phone': _phoneController.text,
+          'username': _usernameController.text,
           'email': _emailController.text,
           'password': _passwordController.text,
           'role': _selectedRole,
@@ -115,6 +117,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hint: 'Số điện thoại *',
                     icon: Icons.phone_outlined,
                     keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 15),
+                  _buildRoundedInput(
+                    controller: _usernameController,
+                    hint: 'Tên tài khoản',
+                    icon: Icons.badge_outlined,
+                    keyboardType: TextInputType.text,
                   ),
                   const SizedBox(height: 15),
                   _buildRoundedInput(

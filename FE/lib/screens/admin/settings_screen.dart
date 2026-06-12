@@ -328,14 +328,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                                       hint: 'Nhập số điện thoại',
                                       keyboardType: TextInputType.phone,
                                     ),
-                                    const SizedBox(height: 14),
-                                    _buildEditField(
-                                      controller: _emailController,
-                                      label: 'Email',
-                                      icon: Icons.email_outlined,
-                                      hint: 'Nhập email',
-                                      keyboardType: TextInputType.emailAddress,
-                                    ),
                                   ]
                                 : [
                                     _buildInfoRow(Icons.badge_outlined, 'Họ và tên', name.isNotEmpty ? name : '—'),
@@ -353,8 +345,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                                         }
                                       },
                                     ),
-                                    _buildDivider(),
-                                    _buildInfoRow(Icons.email_outlined, 'Email', email.isNotEmpty ? email : '—'),
                                     _buildDivider(),
                                     _buildInfoRow(Icons.shield_outlined, 'Vai trò', _getRoleLabel(role), color: _getRoleColor(role)),
                                   ],
