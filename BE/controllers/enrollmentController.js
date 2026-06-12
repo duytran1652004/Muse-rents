@@ -283,7 +283,7 @@ exports.updatePayment = async (req, res) => {
         const now = new Date();
         const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + now.toLocaleDateString('vi-VN');
         
-        const msg = `Học viên ${d.student_name} đã thanh toán ${paidPhase} cho ${cName}. Số tiền: ${formattedAmount}. Thời gian: ${timeStr}.`;
+        const msg = `Học viên: ${d.student_name}\nKhóa học: ${cName}\nThanh toán: ${paidPhase}\nSố tiền: ${formattedAmount}\nThời gian: ${timeStr}`;
         
         await db.query(
           'INSERT INTO notifications (type, title, message, related_id) VALUES (?, ?, ?, ?)',
