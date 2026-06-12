@@ -800,10 +800,11 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
               }
 
               // Filter out already enrolled
-              final enrolledUids = _enrollments.map((e) {
-                if (e['class_id'] != null) return 'class_${e['class_id']}';
-                return 'course_${e['course_id']}';
-              }).toSet();
+              final enrolledUids = <String>{};
+              for (var e in _enrollments) {
+                if (e['class_id'] != null) enrolledUids.add('class_${e['class_id']}');
+                if (e['course_id'] != null) enrolledUids.add('course_${e['course_id']}');
+              }
               
               combined = combined.where((c) => !enrolledUids.contains(c['unique_id'])).toList();
 
