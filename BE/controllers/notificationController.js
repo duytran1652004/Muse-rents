@@ -31,7 +31,8 @@ exports.getAllNotifications = async (req, res) => {
        co.name AS course_name, co.image_url AS course_image_url,
        i.name AS instructor_name,
        cr.name AS c_room_name,
-       (SELECT GROUP_CONCAT(st.name SEPARATOR ', ') FROM class_enrollments ce JOIN students st ON ce.student_id = st.id WHERE ce.class_id = c.id) AS student_names
+       (SELECT GROUP_CONCAT(st.name SEPARATOR ', ') FROM class_enrollments ce JOIN students st ON ce.student_id = st.id WHERE ce.class_id = c.id) AS student_names,
+       pay_co.image_url AS payment_image_url
        
        FROM notifications n
        LEFT JOIN bookings b ON n.related_id = b.id AND n.type = 'booking'
@@ -42,6 +43,9 @@ exports.getAllNotifications = async (req, res) => {
        LEFT JOIN courses co ON c.course_id = co.id
        LEFT JOIN instructors i ON c.instructor_id = i.id
        LEFT JOIN rooms cr ON c.room_id = cr.id
+
+       LEFT JOIN class_enrollments ce_pay ON n.related_id = ce_pay.id AND n.type = 'payment'
+       LEFT JOIN courses pay_co ON ce_pay.course_id = pay_co.id
        
        ${whereClause}
        ORDER BY n.created_at DESC LIMIT 50`,
@@ -95,13 +99,21 @@ exports.getAllNotifications = async (req, res) => {
           max_students: row.max_students,
         };
       }
+
+      let payment_info = null;
+      if (row.type === 'payment' && row.payment_image_url) {
+        payment_info = {
+          course_image_url: row.payment_image_url,
+        };
+      }
       
       const { 
         b_id, booking_date, start_time, end_time, booking_status, b_notes, price, student_name, student_phone, room_name, room_image_url,
         c_id, class_name, class_status, day_of_week, c_start_time, c_end_time, day_of_week_2, start_time_2, end_time_2, day_of_week_3, start_time_3, end_time_3, max_students, completed_sessions, total_sessions, course_name, course_image_url, instructor_name, c_room_name, student_names,
+        payment_image_url,
         ...notif 
       } = row;
-      return { ...notif, booking, class_info };
+      return { ...notif, booking, class_info, payment_info };
     });
     
     res.json(formattedRows);

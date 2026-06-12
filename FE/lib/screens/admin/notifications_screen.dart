@@ -382,6 +382,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: RentsColors.bgLightBlue,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: (notif['payment_info'] != null && notif['payment_info']['course_image_url'] != null)
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.network(
+                            ApiService.getImageUrl(notif['payment_info']['course_image_url']),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.school, color: RentsColors.primaryBlue, size: 28),
+                          ),
+                        )
+                      : const Icon(Icons.school, color: RentsColors.primaryBlue, size: 28),
+                ),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
