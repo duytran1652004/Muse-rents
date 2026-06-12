@@ -319,7 +319,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     for (var line in lines) {
       if (line.startsWith('Học viên: ')) studentName = line.replaceFirst('Học viên: ', '');
       if (line.startsWith('Khóa học: ')) courseName = line.replaceFirst('Khóa học: ', '');
-      if (line.startsWith('Thanh toán: ')) phase = line.replaceFirst('Thanh toán: ', '');
+      if (line.startsWith('Thanh toán: ')) {
+        phase = line.replaceFirst('Thanh toán: ', '');
+        if (phase == 'toàn bộ học phí') phase = '100%';
+      }
       if (line.startsWith('Số tiền: ')) amount = line.replaceFirst('Số tiền: ', '');
       if (line.startsWith('Thời gian: ')) timeStr = line.replaceFirst('Thời gian: ', '');
     }
@@ -379,16 +382,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: RentsColors.bgLightBlue,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(Icons.receipt_long, color: RentsColors.primaryBlue, size: 28),
-                ),
-                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

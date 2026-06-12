@@ -258,7 +258,7 @@ exports.updatePayment = async (req, res) => {
       const newStatus2 = payment_status_2 === 'completed';
 
       if (payment_type === '100%' && newStatus1 && !oldStatus1) {
-        paidPhase = 'toàn bộ học phí';
+        paidPhase = '100%';
         amountPaid = price;
       } else if (payment_type === '50%') {
         if (newStatus1 && !oldStatus1 && newStatus2 && !oldStatus2) {
