@@ -19,6 +19,12 @@ const roomSelect = `
         WHERE b.room_id = r.id
           AND b.status = 'in_progress'
       ) THEN 'occupied'
+      WHEN EXISTS (
+        SELECT 1
+        FROM classes c
+        WHERE c.room_id = r.id
+          AND c.is_in_session = 1
+      ) THEN 'occupied'
       ELSE 'available'
     END AS status,
     (

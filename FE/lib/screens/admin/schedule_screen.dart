@@ -2260,7 +2260,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.8,
           ),
@@ -2315,12 +2317,31 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                             ),
                           if (student['email'] != null && student['email'].toString().isNotEmpty)
                             Text(student['email'].toString(), style: const TextStyle(fontSize: 12)),
+                          if (student['review'] != null && student['review'].toString().isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                'Nhận xét: ${student['review']}',
+                                style: const TextStyle(fontSize: 12, color: Colors.orange, fontStyle: FontStyle.italic),
+                              ),
+                            )
+                          ]
                         ],
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.rate_review_outlined, color: RentsColors.primaryBlue),
                         tooltip: 'Nhận xét học viên',
-                        onPressed: () => _showReviewDialog(student),
+                        onPressed: () => _showReviewDialog(student, (newReview) {
+                          setModalState(() {
+                            student['review'] = newReview;
+                          });
+                        }),
                       ),
                       ),
                     );
@@ -2330,11 +2351,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
             ],
           ),
         );
+          },
+        );
       },
     );
   }
 
-  void _showReviewDialog(Map<String, dynamic> student) {
+  void _showReviewDialog(Map<String, dynamic> student, Function(String) onSaved) {
     final TextEditingController reviewController = TextEditingController(text: student['review']?.toString() ?? '');
     showDialog(
       context: context,
@@ -2344,6 +2367,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
           content: TextField(
             controller: reviewController,
             maxLines: 4,
+            keyboardType: TextInputType.multiline,
+            textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
               hintText: 'Nhập nhận xét...',
               border: OutlineInputBorder(),
@@ -2371,6 +2396,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                     'review': reviewController.text,
                   });
                   if (response.statusCode == 200) {
+                    onSaved(reviewController.text);
                     _fetchClasses();
                   } else {
                     setState(() => _isLoadingClasses = false);

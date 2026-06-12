@@ -167,10 +167,8 @@ exports.updateClass = async (req, res) => {
     }
 
     if (req.body.is_in_session !== undefined) {
-      if (existing.room_id) {
-        const newRoomStatus = req.body.is_in_session ? 'in_use' : 'available';
-        await db.query('UPDATE rooms SET status = ? WHERE id = ?', [newRoomStatus, existing.room_id]);
-      }
+      // Room status is dynamically calculated in roomController.js based on is_in_session
+      // No need to update rooms table directly.
     }
 
     const allowedFields = [
