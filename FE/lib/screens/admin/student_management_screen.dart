@@ -426,6 +426,17 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
                           Text(user['phone'], style: const TextStyle(color: RentsColors.primaryBlue, fontSize: 14, fontWeight: FontWeight.w600)),
                         ]),
                       ),
+                    if (user['email'] != null && user['email'].toString().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(children: [
+                          const Icon(Icons.email_outlined, size: 15, color: RentsColors.grayDark),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(user['email'], style: const TextStyle(color: RentsColors.grayDark, fontSize: 13, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+                          ),
+                        ]),
+                      ),
                   ],
                 ),
               ),
