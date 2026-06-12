@@ -896,21 +896,9 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                         ),
                         const Divider(height: 24, thickness: 0.8),
                         _buildPreviewRow(
-                          Icons.calendar_today,
-                          'Lịch học',
-                          '${selectedClass!['day_of_week'] ?? 'N/A'}',
-                        ),
-                        const Divider(height: 24, thickness: 0.8),
-                        _buildPreviewRow(
-                          Icons.access_time,
-                          'Thời gian',
-                          '${formatTimeStr(selectedClass!['start_time'])} - ${formatTimeStr(selectedClass!['end_time'])}',
-                        ),
-                        const Divider(height: 24, thickness: 0.8),
-                        _buildPreviewRow(
                           Icons.timer,
-                          'Thời hạn',
-                          '${selectedClass!['duration'] ?? '1 tháng'}',
+                          'Thời lượng',
+                          '${selectedClass!['total_sessions'] ?? selectedClass!['duration'] ?? 0} buổi',
                         ),
                       ],
                     ),
@@ -924,6 +912,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                     onPressed: selectedClass == null
                         ? null
                         : () async {
+                          try {
                             final isClass = selectedClass!.containsKey('unique_id') && selectedClass!['unique_id'].toString().startsWith('class_');
                             final res = await ApiService.post('/enrollments', {
                               'student_id': _studentData['id'],
@@ -944,7 +933,15 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                                   );
                                 }
                               });
+                            } else {
+                              if (!context.mounted) return;
+                              final msg = json.decode(res.body)['message'] ?? 'Lỗi xảy ra';
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: RentsColors.accentRed));
                             }
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi kết nối'), backgroundColor: RentsColors.accentRed));
+                          }
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: RentsColors.primaryBlue,
