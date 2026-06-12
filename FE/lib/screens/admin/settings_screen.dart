@@ -9,6 +9,8 @@ import 'room_management_screen.dart';
 import 'student_management_screen.dart';
 import 'user_management_screen.dart';
 import 'revenue_report_screen.dart';
+import 'payment_management_screen.dart';
+
 
 class SettingsScreen extends StatefulWidget {
   final Function(int)? onNavigate;
@@ -478,6 +480,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                                     'Theo dõi doanh thu phòng và khóa học',
                                     RentsColors.primaryBlue,
                                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RevenueReportScreen())),
+                                  ),
+                                  _buildDivider(),
+                                  _buildMenuItem(
+                                    Icons.payments_outlined,
+                                    'QUẢN LÝ THANH TOÁN',
+                                    'Xác nhận thanh toán học phí',
+                                    RentsColors.primaryBlue,
+                                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentManagementScreen())),
                                   ),
                                 ],
                               ),

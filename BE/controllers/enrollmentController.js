@@ -190,3 +190,75 @@ exports.deleteEnrollment = async (req, res) => {
     res.status(500).json({ message: 'Server Error' });
   }
 };
+
+// PUT /api/enrollments/:id/payment
+exports.updatePayment = async (req, res) => {
+  try {
+    const { payment_type, payment_status_1, payment_status_2 } = req.body;
+    
+    const [enrollment] = await db.query(`
+      SELECT ce.id, s.name as student_name, co.name as course_name, c.class_name as class_name
+      FROM class_enrollments ce
+      LEFT JOIN students s ON ce.student_id = s.id
+      LEFT JOIN courses co ON ce.course_id = co.id
+      LEFT JOIN classes c ON ce.class_id = c.id
+      WHERE ce.id = ?
+    `, [req.params.id]);
+    
+    if (enrollment.length === 0) {
+      return res.status(404).json({ message: 'Enrollment not found' });
+    }
+
+    let updates = [];
+    let params = [];
+    let statusChanged = false;
+
+    if (payment_type !== undefined) {
+      updates.push('payment_type = ?');
+      params.push(payment_type);
+    }
+
+    if (payment_status_1 !== undefined) {
+      updates.push('payment_status_1 = ?');
+      params.push(payment_status_1);
+      if (payment_status_1 === 'completed') {
+        updates.push('payment_date_1 = NOW()');
+        statusChanged = true;
+      } else {
+        updates.push('payment_date_1 = NULL');
+      }
+    }
+
+    if (payment_status_2 !== undefined) {
+      updates.push('payment_status_2 = ?');
+      params.push(payment_status_2);
+      if (payment_status_2 === 'completed') {
+        updates.push('payment_date_2 = NOW()');
+        statusChanged = true;
+      } else {
+        updates.push('payment_date_2 = NULL');
+      }
+    }
+
+    if (updates.length > 0) {
+      params.push(req.params.id);
+      await db.query(`UPDATE class_enrollments SET ${updates.join(', ')} WHERE id = ?`, params);
+    }
+    
+    if (statusChanged) {
+      const d = enrollment[0];
+      const cName = d.course_name || d.class_name || 'Khóa học';
+      const msg = `Học viên ${d.student_name} đã xác nhận thanh toán thành công cho ${cName}.`;
+      await db.query(
+        'INSERT INTO notifications (type, title, message, related_id) VALUES (?, ?, ?, ?)',
+        ['payment', 'Xác nhận thanh toán', msg, req.params.id]
+      );
+    }
+
+    res.json({ message: 'Payment updated successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
