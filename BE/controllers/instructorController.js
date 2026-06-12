@@ -68,7 +68,7 @@ exports.updateInstructor = async (req, res) => {
 
 exports.deleteInstructor = async (req, res) => {
   try {
-    const [classes] = await db.query('SELECT id FROM classes WHERE instructor_id = ? AND status = "active"', [req.params.id]);
+    const [classes] = await db.query('SELECT id FROM classes WHERE instructor_id = ? AND status = \'active\'', [req.params.id]);
     if (classes.length > 0) {
       return res.status(400).json({ message: 'Không thể xóa giáo viên đang có lớp học đang hoạt động.' });
     }

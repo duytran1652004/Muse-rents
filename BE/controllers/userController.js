@@ -42,11 +42,11 @@ exports.updateUser = async (req, res) => {
           [full_name || '', phone_number || '', email || '', 'active', req.params.id]
         );
       } else {
-        await db.query('UPDATE instructors SET status = "active" WHERE user_id = ?', [req.params.id]);
+        await db.query('UPDATE instructors SET status = \'active\' WHERE user_id = ?', [req.params.id]);
       }
     } else if (role !== 'teacher' && oldRole === 'teacher') {
       // If role changed from teacher to something else, deactivate their instructor record
-      await db.query('UPDATE instructors SET status = "inactive" WHERE user_id = ?', [req.params.id]);
+      await db.query('UPDATE instructors SET status = \'inactive\' WHERE user_id = ?', [req.params.id]);
     }
 
     res.json({ message: 'Cập nhật thành công' });
@@ -66,7 +66,7 @@ exports.deleteUser = async (req, res) => {
     // Check if they are an instructor with active classes
     const [instructor] = await db.query('SELECT id FROM instructors WHERE user_id = ?', [req.params.id]);
     if (instructor.length > 0) {
-      const [classes] = await db.query('SELECT id FROM classes WHERE instructor_id = ? AND status = "active"', [instructor[0].id]);
+      const [classes] = await db.query('SELECT id FROM classes WHERE instructor_id = ? AND status = \'active\'', [instructor[0].id]);
       if (classes.length > 0) {
          return res.status(400).json({ message: 'Không thể xóa người dùng này vì họ đang dạy một hoặc nhiều lớp.' });
       }

@@ -113,21 +113,21 @@ exports.createClass = async (req, res) => {
 
     if (student_ids && Array.isArray(student_ids) && student_ids.length > 0) {
       for (let sid of student_ids) {
-        const [activeOther] = await db.query('SELECT id FROM class_enrollments WHERE student_id = ? AND status = "active"', [sid]);
+        const [activeOther] = await db.query('SELECT id FROM class_enrollments WHERE student_id = ? AND status = \'active\'', [sid]);
         if (activeOther.length > 0) continue; // Skip if already active in another class
 
         const [existing] = await db.query('SELECT id FROM class_enrollments WHERE student_id = ? AND course_id = ?', [sid, course_id]);
         if (existing.length > 0) {
-          await db.query('UPDATE class_enrollments SET class_id = ?, status = "active" WHERE id = ?', [classId, existing[0].id]);
+          await db.query('UPDATE class_enrollments SET class_id = ?, status = \'active\' WHERE id = ?', [classId, existing[0].id]);
         } else {
-          await db.query('INSERT INTO class_enrollments (student_id, class_id, course_id, enrollment_date, status, created_by) VALUES (?, ?, ?, CURDATE(), "active", ?)', [sid, classId, course_id, req.user ? req.user.id : null]);
+          await db.query('INSERT INTO class_enrollments (student_id, class_id, course_id, enrollment_date, status, created_by) VALUES (?, ?, ?, CURDATE(), \'active\', ?)', [sid, classId, course_id, req.user ? req.user.id : null]);
         }
       }
       
       // Update global status for these students
       await db.query(`
         UPDATE students s 
-        SET status = IF(EXISTS(SELECT 1 FROM class_enrollments ce WHERE ce.student_id = s.id AND ce.status = "active"), "active", "confirmed") 
+        SET status = IF(EXISTS(SELECT 1 FROM class_enrollments ce WHERE ce.student_id = s.id AND ce.status = \'active\'), \'active\', \'confirmed\') 
         WHERE id IN (?)`, [student_ids]
       );
     }
@@ -202,20 +202,20 @@ exports.updateClass = async (req, res) => {
       const oldStudentIds = oldEnrollments.map(e => e.student_id);
 
       // Remove students from this class
-      await db.query('UPDATE class_enrollments SET class_id = NULL, status = "confirmed" WHERE class_id = ?', [req.params.id]);
+      await db.query('UPDATE class_enrollments SET class_id = NULL, status = \'confirmed\' WHERE class_id = ?', [req.params.id]);
       
       if (Array.isArray(student_ids) && student_ids.length > 0) {
         const courseId = req.body.course_id || existing.course_id;
         for (let sid of student_ids) {
           if (courseId) {
-            const [activeOther] = await db.query('SELECT id FROM class_enrollments WHERE student_id = ? AND status = "active" AND class_id != ?', [sid, req.params.id]);
+            const [activeOther] = await db.query('SELECT id FROM class_enrollments WHERE student_id = ? AND status = \'active\' AND class_id != ?', [sid, req.params.id]);
             if (activeOther.length > 0) continue;
 
             const [existingE] = await db.query('SELECT id FROM class_enrollments WHERE student_id = ? AND course_id = ?', [sid, courseId]);
             if (existingE.length > 0) {
-              await db.query('UPDATE class_enrollments SET class_id = ?, status = "active" WHERE id = ?', [req.params.id, existingE[0].id]);
+              await db.query('UPDATE class_enrollments SET class_id = ?, status = \'active\' WHERE id = ?', [req.params.id, existingE[0].id]);
             } else {
-              await db.query('INSERT INTO class_enrollments (student_id, class_id, course_id, enrollment_date, status, created_by) VALUES (?, ?, ?, CURDATE(), "active", ?)', [sid, req.params.id, courseId, req.user ? req.user.id : null]);
+              await db.query('INSERT INTO class_enrollments (student_id, class_id, course_id, enrollment_date, status, created_by) VALUES (?, ?, ?, CURDATE(), \'active\', ?)', [sid, req.params.id, courseId, req.user ? req.user.id : null]);
             }
           }
         }
@@ -226,7 +226,7 @@ exports.updateClass = async (req, res) => {
       if (allAffectedIds.length > 0) {
         await db.query(`
           UPDATE students s 
-          SET status = IF(EXISTS(SELECT 1 FROM class_enrollments ce WHERE ce.student_id = s.id AND ce.status = "active"), "active", "confirmed") 
+          SET status = IF(EXISTS(SELECT 1 FROM class_enrollments ce WHERE ce.student_id = s.id AND ce.status = \'active\'), \'active\', \'confirmed\') 
           WHERE id IN (?)`, [allAffectedIds]
         );
       }
@@ -299,7 +299,7 @@ exports.deleteClass = async (req, res) => {
     const studentIds = enrollments.map(e => e.student_id);
 
     // Trả khóa học lại cho học viên bằng cách set class_id = NULL và status = 'confirmed'
-    await db.query('UPDATE class_enrollments SET class_id = NULL, status = "confirmed" WHERE class_id = ?', [req.params.id]);
+    await db.query('UPDATE class_enrollments SET class_id = NULL, status = \'confirmed\' WHERE class_id = ?', [req.params.id]);
 
     // Xóa lớp học
     await db.query('DELETE FROM classes WHERE id = ?', [req.params.id]);
@@ -309,7 +309,7 @@ exports.deleteClass = async (req, res) => {
       for (const sid of studentIds) {
         await db.query(`
           UPDATE students s 
-          SET status = IF(EXISTS(SELECT 1 FROM class_enrollments ce WHERE ce.student_id = s.id AND ce.status = "active"), "active", "confirmed") 
+          SET status = IF(EXISTS(SELECT 1 FROM class_enrollments ce WHERE ce.student_id = s.id AND ce.status = \'active\'), \'active\', \'confirmed\') 
           WHERE id = ?`, [sid]
         );
       }
@@ -317,7 +317,7 @@ exports.deleteClass = async (req, res) => {
 
     // Xóa các thông báo liên quan đến lớp
     try {
-      await db.query('DELETE FROM notifications WHERE type = "class" AND related_id = ?', [req.params.id]);
+      await db.query('DELETE FROM notifications WHERE type = \'class\' AND related_id = ?', [req.params.id]);
     } catch (e) {
       console.error('Lỗi khi xóa thông báo:', e);
     }

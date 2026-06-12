@@ -82,7 +82,7 @@ exports.createEnrollment = async (req, res) => {
     const { student_id, class_id, course_id } = req.body;
 
     // Check if already enrolled in this class or course
-    let existingQuery = 'SELECT id FROM class_enrollments WHERE student_id = ? AND status = "active"';
+    let existingQuery = 'SELECT id FROM class_enrollments WHERE student_id = ? AND status = \'active\'';
     let existingParams = [student_id];
     
     if (class_id) {
@@ -104,7 +104,7 @@ exports.createEnrollment = async (req, res) => {
     if (class_id) {
       const [classInfo] = await db.query('SELECT max_students FROM classes WHERE id = ?', [class_id]);
       if (classInfo.length > 0) {
-        const [current] = await db.query('SELECT count(*) as count FROM class_enrollments WHERE class_id = ? AND status != "dropped"', [class_id]);
+        const [current] = await db.query('SELECT count(*) as count FROM class_enrollments WHERE class_id = ? AND status != \'dropped\'', [class_id]);
         if (current[0].count >= classInfo[0].max_students) {
           return res.status(400).json({ message: 'Lớp học này đã đủ số lượng học viên tối đa.' });
         }
@@ -112,7 +112,7 @@ exports.createEnrollment = async (req, res) => {
     }
 
     const [result] = await db.query(
-      'INSERT INTO class_enrollments (student_id, class_id, course_id, start_date, end_date, enrollment_date, status, created_by) VALUES (?, ?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 MONTH), NOW(), "confirmed", ?)',
+      'INSERT INTO class_enrollments (student_id, class_id, course_id, start_date, end_date, enrollment_date, status, created_by) VALUES (?, ?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 MONTH), NOW(), \'confirmed\', ?)',
       [student_id, class_id || null, course_id || null, req.user ? req.user.id : null]
     );
     
@@ -151,7 +151,7 @@ exports.updateEnrollment = async (req, res) => {
 
       if (status === 'active') {
         const [activeOthers] = await db.query(
-          'SELECT id FROM class_enrollments WHERE student_id = ? AND status = "active" AND id != ?',
+          'SELECT id FROM class_enrollments WHERE student_id = ? AND status = \'active\' AND id != ?',
           [enrollment[0].student_id, req.params.id]
         );
         if (activeOthers.length > 0) {
