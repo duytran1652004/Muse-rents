@@ -33,8 +33,8 @@ class _EditItemScreenState extends State<EditItemScreen> {
   final _picker = ImagePicker();
   bool _isLoading = false;
   List<dynamic> _classes = [];
-  List<int> _selectedClassIds = [];
-  List<int> _initialSelectedClassIds = [];
+  final Set<String> _selectedIds = {};
+  final Set<String> _initialSelectedIds = {};
   bool _isLoadingClasses = false;
   String _status = 'active';
   bool get _isEditMode => widget.existingData != null;
@@ -76,7 +76,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
       }
       if (widget.type == 'student') {
         _fetchClasses();
-        if (_isEditMode) _fetchStudentEnrollment();
       }
     }
   }
@@ -91,7 +90,11 @@ class _EditItemScreenState extends State<EditItemScreen> {
         if (enrollments.isNotEmpty) {
           setState(() {
             for (var enrollment in enrollments) {
-              _tryPreSelectClass(enrollment['class_id'] ?? enrollment['course_id']);
+              if (enrollment['class_id'] != null) {
+                _tryPreSelect('class_${enrollment['class_id']}');
+              } else if (enrollment['course_id'] != null) {
+                _tryPreSelect('course_${enrollment['course_id']}');
+              }
             }
           });
         }
@@ -99,14 +102,14 @@ class _EditItemScreenState extends State<EditItemScreen> {
     } catch (_) {}
   }
 
-  void _tryPreSelectClass(int? classId) {
-    if (classId == null || _classes.isEmpty) return;
+  void _tryPreSelect(String uid) {
+    if (_classes.isEmpty) return;
     try {
-      if (_classes.any((c) => c['id'] == classId)) {
-        if (!_selectedClassIds.contains(classId)) {
+      if (_classes.any((c) => c['unique_id'] == uid)) {
+        if (!_selectedIds.contains(uid)) {
           setState(() {
-            _selectedClassIds.add(classId);
-            _initialSelectedClassIds.add(classId);
+            _selectedIds.add(uid);
+            _initialSelectedIds.add(uid);
           });
         }
       }
@@ -116,35 +119,37 @@ class _EditItemScreenState extends State<EditItemScreen> {
   Future<void> _fetchClasses() async {
     setState(() => _isLoadingClasses = true);
     try {
-      // Try to get classes first (as they have schedule info)
-      final res = await ApiService.get('/classes');
-      if (res.statusCode == 200) {
-        final data = json.decode(res.body);
-        if (data is List && data.isNotEmpty) {
-          setState(() {
-            _classes = data;
-            _isLoadingClasses = false;
-            if (_isEditMode) _fetchStudentEnrollment();
-          });
-          return;
+      final classRes = await ApiService.get('/classes');
+      final courseRes = await ApiService.get('/courses');
+      
+      List<dynamic> combined = [];
+      if (classRes.statusCode == 200) {
+        final data = json.decode(classRes.body);
+        if (data is List) {
+          combined.addAll(data.map((c) => {
+            ...c,
+            'unique_id': 'class_${c['id']}',
+            'display_name': 'Lớp: ${c['class_name'] ?? c['name'] ?? ''}'
+          }));
+        }
+      }
+      if (courseRes.statusCode == 200) {
+        final data = json.decode(courseRes.body);
+        if (data is List) {
+          combined.addAll(data.map((c) => {
+            ...c,
+            'unique_id': 'course_${c['id']}',
+            'display_name': 'Khóa: ${c['name'] ?? ''}',
+            'class_name': c['name']
+          }));
         }
       }
       
-      // If no classes, fallback to courses
-      final courseRes = await ApiService.get('/courses');
-      if (courseRes.statusCode == 200) {
-        final data = json.decode(courseRes.body);
-        setState(() {
-          _classes = data.map((c) => {
-            ...c,
-            'class_name': c['name'], // Map 'name' to 'class_name' for UI consistency
-          }).toList();
-          _isLoadingClasses = false;
-          if (_isEditMode) _fetchStudentEnrollment();
-        });
-      } else {
-        setState(() => _isLoadingClasses = false);
-      }
+      setState(() {
+        _classes = combined;
+        _isLoadingClasses = false;
+        if (_isEditMode) _fetchStudentEnrollment();
+      });
     } catch (e) {
       debugPrint('Error fetching classes: $e');
       setState(() => _isLoadingClasses = false);
@@ -265,19 +270,20 @@ class _EditItemScreenState extends State<EditItemScreen> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Handle Enrollment (both Create and Edit mode for student)
-        if (widget.type == 'student' && _selectedClassIds.isNotEmpty) {
+        if (widget.type == 'student' && _selectedIds.isNotEmpty) {
           final studentId = _isEditMode ? widget.existingData!['id'] : json.decode(response.body)['id'];
           if (studentId != null) {
-            for (int classId in _selectedClassIds) {
-              if (_isEditMode && _initialSelectedClassIds.contains(classId)) {
+            for (String uid in _selectedIds) {
+              if (_isEditMode && _initialSelectedIds.contains(uid)) {
                 continue; // Skip already enrolled courses to prevent duplicates
               }
-              final selected = _classes.firstWhere((c) => c['id'] == classId);
-              final isClass = selected.containsKey('course_id');
+              final selected = _classes.firstWhere((c) => c['unique_id'] == uid);
+              final isClass = uid.startsWith('class_');
+              final id = selected['id'];
               
               await ApiService.post('/enrollments', {
                 'student_id': studentId,
-                if (isClass) 'class_id': classId else 'course_id': classId,
+                if (isClass) 'class_id': id else 'course_id': id,
               });
             }
           }
@@ -364,7 +370,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
                   const Text('GÁN KHÓA HỌC (TÙY CHỌN)', style: TextStyle(fontWeight: FontWeight.bold, color: RentsColors.primaryBlue, fontSize: 13)),
                   const SizedBox(height: 12),
                   _buildClassDropdown(),
-                  if (_selectedClassIds.isNotEmpty) ...[
+                  if (_selectedIds.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     _buildCourseInfoPreview(),
                   ],
@@ -446,17 +452,17 @@ class _EditItemScreenState extends State<EditItemScreen> {
           spacing: 8,
           runSpacing: 8,
           children: _classes.map((c) {
-            final int id = c['id'] as int;
-            final bool isSelected = _selectedClassIds.contains(id);
+            final String uid = c['unique_id'];
+            final bool isSelected = _selectedIds.contains(uid);
             return FilterChip(
-              label: Text(c['class_name'] ?? c['name'] ?? 'Lớp học'),
+              label: Text(c['display_name'] ?? c['class_name'] ?? 'Lớp học'),
               selected: isSelected,
               onSelected: (selected) {
                 setState(() {
                   if (selected) {
-                    _selectedClassIds.add(id);
+                    _selectedIds.add(uid);
                   } else {
-                    _selectedClassIds.remove(id);
+                    _selectedIds.remove(uid);
                   }
                 });
               },
@@ -474,24 +480,20 @@ class _EditItemScreenState extends State<EditItemScreen> {
   }
 
   Widget _buildCourseInfoPreview() {
-    if (_selectedClassIds.isEmpty) return const SizedBox.shrink();
+    if (_selectedIds.isEmpty) return const SizedBox.shrink();
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: RentsColors.primaryBlue.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: RentsColors.primaryBlue.withValues(alpha: 0.15), width: 1.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RentsColors.primaryBlue.withValues(alpha: 0.2)),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              const Icon(Icons.info_outline, color: RentsColors.primaryBlue, size: 20),
-              const SizedBox(width: 8),
-              Text('Đã chọn ${_selectedClassIds.length} khóa học', style: const TextStyle(fontWeight: FontWeight.bold, color: RentsColors.primaryBlue)),
-            ],
-          )
+          const Icon(Icons.info_outline, color: RentsColors.primaryBlue, size: 20),
+          const SizedBox(width: 8),
+          Text('Đã chọn ${_selectedIds.length} khóa học / lớp học', style: const TextStyle(fontWeight: FontWeight.bold, color: RentsColors.primaryBlue)),
         ],
       ),
     );
