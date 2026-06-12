@@ -102,6 +102,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 12),
+                TextField(
+                  controller: emailController,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedRole,
                   decoration: InputDecoration(

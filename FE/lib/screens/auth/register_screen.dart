@@ -119,9 +119,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 15),
                   _buildRoundedInput(
                     controller: _emailController,
-                    hint: 'Tên tài khoản',
-                    icon: Icons.badge_outlined,
-                    keyboardType: TextInputType.text,
+                    hint: 'Email',
+                    icon: Icons.email_outlined,
+                    keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 15),
                   _buildRoundedInput(

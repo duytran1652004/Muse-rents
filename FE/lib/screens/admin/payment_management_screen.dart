@@ -73,6 +73,16 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
     return '${value.replaceAllMapped(reg, mathFunc)} ₫';
   }
 
+  String _formatDateTime(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(dateStr).toLocal();
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} ${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (e) {
+      return '';
+    }
+  }
+
   void _showPaymentDialog(dynamic enrollment) {
     String currentType = enrollment['payment_type'] ?? '100%';
     bool originalStatus1 = enrollment['payment_status_1'] == 'completed';
@@ -153,24 +163,63 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                   const SizedBox(height: 16),
                   const Text('Trạng thái:', style: TextStyle(fontWeight: FontWeight.w700, color: RentsColors.grayDark)),
                   const SizedBox(height: 8),
-                  SwitchListTile(
-                    title: Text(currentType == '100%' ? 'Xác nhận đã thu toàn bộ' : 'Thanh toán đợt 1', style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('Số tiền: $amount1Text', style: const TextStyle(color: RentsColors.primaryBlue, fontWeight: FontWeight.bold)),
-                    value: status1,
-                    activeColor: const Color(0xFF2ECC71),
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: originalStatus1 ? null : (val) {
-                      setModalState(() {
-                        status1 = val;
-                        if (!status1) {
-                          status2 = false; // Tự động bỏ check đợt 2 nếu đợt 1 chưa thanh toán
-                        }
-                      });
-                    },
-                  ),
+                  if (currentType == '100%')
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text('Số tiền cần thu:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                              const SizedBox(width: 8),
+                              Text(amount1Text, style: const TextStyle(color: RentsColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: 16)),
+                            ],
+                          ),
+                          if (originalStatus1) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                const Icon(Icons.check_circle, color: Color(0xFF2ECC71), size: 20),
+                                const SizedBox(width: 6),
+                                Expanded(child: Text('Đã thu (${_formatDateTime(enrollment['payment_date_1'])})', style: const TextStyle(color: Color(0xFF2ECC71), fontWeight: FontWeight.bold))),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  else
+                    SwitchListTile(
+                      title: Row(
+                        children: [
+                          const Text('Thanh toán đợt 1', style: TextStyle(fontWeight: FontWeight.w600)),
+                          if (originalStatus1)
+                            Expanded(child: Text(' (${_formatDateTime(enrollment['payment_date_1'])})', style: const TextStyle(color: Color(0xFF2ECC71), fontSize: 13), textAlign: TextAlign.right)),
+                        ]
+                      ),
+                      subtitle: Text('Số tiền: $amount1Text', style: const TextStyle(color: RentsColors.primaryBlue, fontWeight: FontWeight.bold)),
+                      value: status1,
+                      activeColor: const Color(0xFF2ECC71),
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: originalStatus1 ? null : (val) {
+                        setModalState(() {
+                          status1 = val;
+                          if (!status1) {
+                            status2 = false; // Tự động bỏ check đợt 2 nếu đợt 1 chưa thanh toán
+                          }
+                        });
+                      },
+                    ),
                   if (currentType == '50%')
                     SwitchListTile(
-                      title: const Text('Thanh toán đợt 2', style: TextStyle(fontWeight: FontWeight.w600)),
+                      title: Row(
+                        children: [
+                          const Text('Thanh toán đợt 2', style: TextStyle(fontWeight: FontWeight.w600)),
+                          if (originalStatus2)
+                            Expanded(child: Text(' (${_formatDateTime(enrollment['payment_date_2'])})', style: const TextStyle(color: Color(0xFF2ECC71), fontSize: 13), textAlign: TextAlign.right)),
+                        ]
+                      ),
                       subtitle: Text('Số tiền: $amount2Text', style: const TextStyle(color: RentsColors.primaryBlue, fontWeight: FontWeight.bold)),
                       value: status2,
                       activeColor: const Color(0xFF2ECC71),
@@ -182,12 +231,12 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: isSaving ? null : () async {
+                      onPressed: (isSaving || (currentType == '100%' && originalStatus1) || (currentType == '50%' && originalStatus1 && originalStatus2)) ? null : () async {
                         setModalState(() => isSaving = true);
                         try {
                           final body = {
                             'payment_type': currentType,
-                            'payment_status_1': status1 ? 'completed' : 'pending',
+                            'payment_status_1': currentType == '100%' ? 'completed' : (status1 ? 'completed' : 'pending'),
                             'payment_status_2': currentType == '100%' ? 'pending' : (status2 ? 'completed' : 'pending'),
                           };
                           final res = await ApiService.put('/enrollments/${enrollment['id']}/payment', body);

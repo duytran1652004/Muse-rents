@@ -327,6 +327,11 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
             },
           ),
           _infoRow(
+            Icons.email_outlined,
+            'Email',
+            _studentData['email']?.toString() ?? '—',
+          ),
+          _infoRow(
             Icons.event_note_rounded,
             'Ngày đăng ký',
             _formatDate(_studentData['enrollment_date']),
