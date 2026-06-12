@@ -281,9 +281,13 @@ exports.updatePayment = async (req, res) => {
         const formattedAmount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amountPaid);
         
         const now = new Date();
-        const optionsTime = { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' };
-        const optionsDate = { timeZone: 'Asia/Ho_Chi_Minh' };
-        const timeStr = now.toLocaleTimeString('vi-VN', optionsTime) + ' ' + now.toLocaleDateString('vi-VN', optionsDate);
+        const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+        const hh = String(vnTime.getUTCHours()).padStart(2, '0');
+        const mm = String(vnTime.getUTCMinutes()).padStart(2, '0');
+        const DD = String(vnTime.getUTCDate()).padStart(2, '0');
+        const MM = String(vnTime.getUTCMonth() + 1).padStart(2, '0');
+        const YYYY = vnTime.getUTCFullYear();
+        const timeStr = `${hh}:${mm} ${DD}/${MM}/${YYYY}`;
         
         const msg = `Học viên: ${d.student_name}\nKhóa học: ${cName}\nThanh toán: ${paidPhase}\nSố tiền: ${formattedAmount}\nThời gian: ${timeStr}`;
         
