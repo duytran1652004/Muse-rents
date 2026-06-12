@@ -2317,6 +2317,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                             Text(student['email'].toString(), style: const TextStyle(fontSize: 12)),
                         ],
                       ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.rate_review_outlined, color: RentsColors.primaryBlue),
+                        tooltip: 'Nhận xét học viên',
+                        onPressed: () => _showReviewDialog(student),
+                      ),
                       ),
                     );
                   },
@@ -2324,6 +2329,62 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showReviewDialog(Map<String, dynamic> student) {
+    final TextEditingController reviewController = TextEditingController(text: student['review']?.toString() ?? '');
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Nhận xét ${student['name']}'),
+          content: TextField(
+            controller: reviewController,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: 'Nhập nhận xét...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final enrollmentId = student['enrollment_id'];
+                if (enrollmentId == null) {
+                  Navigator.pop(context);
+                  return;
+                }
+                Navigator.pop(context);
+                
+                // Show updating state
+                setState(() => _isLoadingClasses = true);
+                
+                try {
+                  final response = await ApiService.put('/enrollments/$enrollmentId', {
+                    'review': reviewController.text,
+                  });
+                  if (response.statusCode == 200) {
+                    _fetchClasses();
+                  } else {
+                    setState(() => _isLoadingClasses = false);
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi cập nhật nhận xét')));
+                  }
+                } catch (_) {
+                  setState(() => _isLoadingClasses = false);
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi hệ thống')));
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: RentsColors.primaryBlue),
+              child: const Text('Lưu', style: TextStyle(color: Colors.white)),
+            ),
+          ],
         );
       },
     );

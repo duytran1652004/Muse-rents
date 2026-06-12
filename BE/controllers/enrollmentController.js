@@ -129,34 +129,39 @@ exports.createEnrollment = async (req, res) => {
 // PUT /api/enrollments/:id
 exports.updateEnrollment = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, review } = req.body;
     const [enrollment] = await db.query('SELECT student_id, status FROM class_enrollments WHERE id = ?', [req.params.id]);
     
     if (enrollment.length === 0) {
       return res.status(404).json({ message: 'Enrollment not found' });
     }
 
-    if (enrollment[0].status === 'completed') {
-      return res.status(400).json({ message: 'Khóa học đã hoàn thành, không thể thay đổi trạng thái.' });
+    if (review !== undefined) {
+      await db.query('UPDATE class_enrollments SET review = ? WHERE id = ?', [review, req.params.id]);
     }
 
-    if (enrollment[0].status === 'dropped' && status === 'completed') {
-      return res.status(400).json({ message: 'Khóa học đã hủy không thể chuyển sang hoàn thành.' });
-    }
-
-    if (status === 'active') {
-      const [activeOthers] = await db.query(
-        'SELECT id FROM class_enrollments WHERE student_id = ? AND status = "active" AND id != ?',
-        [enrollment[0].student_id, req.params.id]
-      );
-      if (activeOthers.length > 0) {
-        return res.status(400).json({ message: 'Học viên này đang học một khóa khác. Không thể có 2 khóa cùng lúc.' });
+    if (status !== undefined && status !== enrollment[0].status) {
+      if (enrollment[0].status === 'completed') {
+        return res.status(400).json({ message: 'Khóa học đã hoàn thành, không thể thay đổi trạng thái.' });
       }
-    }
 
-    await db.query('UPDATE class_enrollments SET status = ? WHERE id = ?', [status, req.params.id]);
-    
-    await recalculateStudentStatus(enrollment[0].student_id);
+      if (enrollment[0].status === 'dropped' && status === 'completed') {
+        return res.status(400).json({ message: 'Khóa học đã hủy không thể chuyển sang hoàn thành.' });
+      }
+
+      if (status === 'active') {
+        const [activeOthers] = await db.query(
+          'SELECT id FROM class_enrollments WHERE student_id = ? AND status = "active" AND id != ?',
+          [enrollment[0].student_id, req.params.id]
+        );
+        if (activeOthers.length > 0) {
+          return res.status(400).json({ message: 'Học viên này đang học một khóa khác. Không thể có 2 khóa cùng lúc.' });
+        }
+      }
+
+      await db.query('UPDATE class_enrollments SET status = ? WHERE id = ?', [status, req.params.id]);
+      await recalculateStudentStatus(enrollment[0].student_id);
+    }
     
     res.json({ message: 'Enrollment updated' });
   } catch (err) {
