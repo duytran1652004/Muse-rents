@@ -281,7 +281,9 @@ exports.updatePayment = async (req, res) => {
         const formattedAmount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amountPaid);
         
         const now = new Date();
-        const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + now.toLocaleDateString('vi-VN');
+        const optionsTime = { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' };
+        const optionsDate = { timeZone: 'Asia/Ho_Chi_Minh' };
+        const timeStr = now.toLocaleTimeString('vi-VN', optionsTime) + ' ' + now.toLocaleDateString('vi-VN', optionsDate);
         
         const msg = `Học viên: ${d.student_name}\nKhóa học: ${cName}\nThanh toán: ${paidPhase}\nSố tiền: ${formattedAmount}\nThời gian: ${timeStr}`;
         
