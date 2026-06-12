@@ -758,7 +758,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
   }
 
   Future<void> _showAddEnrollmentSheet() async {
-    List<dynamic> classes = [];
+    List<Map<String, dynamic>> classes = [];
     bool loadingClasses = true;
     Map<String, dynamic>? selectedClass;
 
@@ -780,7 +780,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
               if (classRes.statusCode == 200) {
                 final data = json.decode(classRes.body);
                 if (data is List) {
-                  combined.addAll(data.map((c) => {
+                  combined.addAll(data.map((c) => <String, dynamic>{
                     ...c,
                     'unique_id': 'class_${c['id']}',
                     'display_name': c['class_name'] ?? c['name'] ?? ''
@@ -790,7 +790,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
               if (courseRes.statusCode == 200) {
                 final data = json.decode(courseRes.body);
                 if (data is List) {
-                  combined.addAll(data.map((c) => {
+                  combined.addAll(data.map((c) => <String, dynamic>{
                     ...c,
                     'unique_id': 'course_${c['id']}',
                     'display_name': c['name'] ?? '',
@@ -809,7 +809,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
 
               if (context.mounted) {
                 setSheetState(() {
-                  classes = combined;
+                  classes = combined.cast<Map<String, dynamic>>();
                   loadingClasses = false;
                 });
               }
@@ -861,8 +861,8 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                         value: selectedClass,
                         items: classes
                             .map(
-                              (courseClass) => DropdownMenuItem(
-                                value: courseClass as Map<String, dynamic>,
+                              (courseClass) => DropdownMenuItem<Map<String, dynamic>>(
+                                value: courseClass,
                                 child: Text(
                                   (courseClass['display_name'] ?? courseClass['class_name'] ?? 'Lớp học')
                                       .toString(),
