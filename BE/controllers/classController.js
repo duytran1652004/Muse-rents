@@ -166,13 +166,20 @@ exports.updateClass = async (req, res) => {
       }
     }
 
+    if (req.body.is_in_session !== undefined) {
+      if (existing.room_id) {
+        const newRoomStatus = req.body.is_in_session ? 'in_use' : 'available';
+        await db.query('UPDATE rooms SET status = ? WHERE id = ?', [newRoomStatus, existing.room_id]);
+      }
+    }
+
     const allowedFields = [
       'course_id', 'room_id', 'instructor_id', 'class_name', 
       'day_of_week', 'start_time', 'end_time', 
       'day_of_week_2', 'start_time_2', 'end_time_2',
       'day_of_week_3', 'start_time_3', 'end_time_3',
       'max_students', 'price_per_class', 'status',
-      'total_sessions', 'completed_sessions'
+      'total_sessions', 'completed_sessions', 'is_in_session'
     ];
     const fields = [];
     const params = [];

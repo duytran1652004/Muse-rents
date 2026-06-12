@@ -1967,6 +1967,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
     final total = cls['total_sessions'] ?? 0;
     final imageUrl = cls['course_image_url'];
     final isTeacher = globalRole.value == 'teacher';
+    final bool isInSession = cls['is_in_session'] == 1 || cls['is_in_session'] == true;
     
     showModalBottomSheet(
       context: context,
@@ -2189,27 +2190,34 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                 children: [
                   Expanded(
                     child: _buildActionButton(
-                      'Học xong 1 buổi',
-                      RentsColors.primaryBlue,
+                      isInSession ? 'Học xong' : 'Bắt đầu học',
+                      isInSession ? RentsColors.primaryBlue : RentsColors.accentGreen,
                       Colors.white,
                       (cls['status'] == 'completed' || cls['status'] == 'cancelled' || (total > 0 && completed >= total)) ? null : () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (dialogContext) => AlertDialog(
-                            title: const Text('Xác nhận'),
-                            content: const Text('Xác nhận đã học xong 1 buổi?'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Hủy')),
-                              TextButton(
-                                onPressed: () => Navigator.pop(dialogContext, true),
-                                child: const Text('Xác nhận', style: TextStyle(color: RentsColors.primaryBlue)),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true) {
+                        if (!isInSession) {
+                          // Bắt đầu học
                           if (context.mounted) Navigator.pop(context);
-                          _updateClassSessions(cls, completed + 1);
+                          _updateClassSessionState(cls, true);
+                        } else {
+                          // Học xong
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('Xác nhận'),
+                              content: const Text('Xác nhận đã học xong buổi học này?'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Hủy')),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialogContext, true),
+                                  child: const Text('Xác nhận', style: TextStyle(color: RentsColors.primaryBlue)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            if (context.mounted) Navigator.pop(context);
+                            _updateClassSessions(cls, completed + 1, isInSession: false);
+                          }
                         }
                       },
                     ),
@@ -2336,7 +2344,24 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
     }
   }
 
-  Future<void> _updateClassSessions(Map<String, dynamic> cls, int newSessions) async {
+  Future<void> _updateClassSessionState(Map<String, dynamic> cls, bool isInSession) async {
+    setState(() => _isLoadingClasses = true);
+    try {
+      final response = await ApiService.put('/classes/${cls['id']}', {
+        'is_in_session': isInSession,
+      });
+      if (response.statusCode == 200) {
+        _fetchClasses();
+      } else {
+        setState(() => _isLoadingClasses = false);
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi cập nhật trạng thái lớp')));
+      }
+    } catch (_) {
+      setState(() => _isLoadingClasses = false);
+    }
+  }
+
+  Future<void> _updateClassSessions(Map<String, dynamic> cls, int newSessions, {bool? isInSession}) async {
     final total = cls['total_sessions'] ?? 0;
     String newStatus = cls['status'] ?? 'active';
     if (newSessions >= total && total > 0) {
@@ -2345,7 +2370,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
 
     setState(() => _isLoadingClasses = true);
     try {
-      final response = await ApiService.put('/classes/${cls['id']}', {'completed_sessions': newSessions, 'status': newStatus});
+      final body = <String, dynamic>{'completed_sessions': newSessions, 'status': newStatus};
+      if (isInSession != null) body['is_in_session'] = isInSession;
+
+      final response = await ApiService.put('/classes/${cls['id']}', body);
       if (response.statusCode == 200) {
         _fetchClasses();
       } else {
