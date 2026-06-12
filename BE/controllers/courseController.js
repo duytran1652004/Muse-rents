@@ -58,10 +58,19 @@ exports.updateCourse = async (req, res) => {
 
 exports.deleteCourse = async (req, res) => {
   try {
-    await db.query('DELETE FROM courses WHERE id = ?', [req.params.id]);
+    const courseId = req.params.id;
+    const [classes] = await db.query('SELECT COUNT(*) as count FROM classes WHERE course_id = ?', [courseId]);
+    if (classes[0].count > 0) {
+      return res.status(400).json({ message: 'Không thể xóa khóa học vì đang có lớp học tham chiếu đến khóa này. Vui lòng xóa các lớp học trước.' });
+    }
+
+    await db.query('DELETE FROM courses WHERE id = ?', [courseId]);
     res.json({ message: 'Course deleted successfully' });
   } catch (err) {
     console.error(err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(400).json({ message: 'Không thể xóa khóa học vì dữ liệu đang được sử dụng ở nơi khác.' });
+    }
     res.status(500).json({ message: 'Server Error' });
   }
 };

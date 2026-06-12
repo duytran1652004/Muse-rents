@@ -292,43 +292,64 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                           const SizedBox(height: 16),
                           _sectionTitle('Nhận xét của bạn'),
                           const SizedBox(height: 10),
-                          TextField(
-                            controller: reviewController,
-                            maxLines: 3,
-                            style: const TextStyle(fontSize: 14),
-                            decoration: InputDecoration(
-                              hintText: 'Viết cảm nhận về khóa học này...',
-                              hintStyle: TextStyle(color: RentsColors.grayDark.withValues(alpha: 0.6), fontSize: 13),
-                              filled: true,
-                              fillColor: const Color(0xFFF5F8FF),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
+                          if (completed > 0) ...[
+                            TextField(
+                              controller: reviewController,
+                              maxLines: 3,
+                              style: const TextStyle(fontSize: 14),
+                              decoration: InputDecoration(
+                                hintText: 'Viết cảm nhận về khóa học này...',
+                                hintStyle: TextStyle(color: RentsColors.grayDark.withValues(alpha: 0.6), fontSize: 13),
+                                filled: true,
+                                fillColor: const Color(0xFFF5F8FF),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: RentsColors.primaryBlue, width: 1.5),
+                                ),
+                                contentPadding: const EdgeInsets.all(14),
                               ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: RentsColors.primaryBlue, width: 1.5),
-                              ),
-                              contentPadding: const EdgeInsets.all(14),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 46,
-                            child: ElevatedButton(
-                              onPressed: isSavingReview ? null : saveStudentReview,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: RentsColors.primaryBlue,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 0,
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 46,
+                              child: ElevatedButton(
+                                onPressed: isSavingReview ? null : saveStudentReview,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: RentsColors.primaryBlue,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  elevation: 0,
+                                ),
+                                child: isSavingReview
+                                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                    : const Text('Lưu nhận xét', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                               ),
-                              child: isSavingReview
-                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                  : const Text('Lưu nhận xét', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                             ),
-                          ),
+                          ] else
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: RentsColors.bgLightBlue,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: RentsColors.primaryBlue, size: 20),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Bạn có thể viết nhận xét sau khi tham gia ít nhất 1 buổi học.',
+                                      style: TextStyle(fontSize: 13, color: RentsColors.grayDark),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
 
                           // Payment
                           const SizedBox(height: 16),
