@@ -1222,7 +1222,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
         final filtered = _filteredBookings;
         final grouped = _groupBookings(filtered);
         final isTeacher = role == 'teacher';
-        final isStaff = role == 'user' || role == 'staff'; // user or staff
+        final isStudent = role == 'student';
+        final isTeacherOrStudent = isTeacher || isStudent;
+        final isStaff = role == 'user' || role == 'staff';
 
         return Scaffold(
           backgroundColor: RentsColors.bgLightBlue,
@@ -1232,7 +1234,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
             centerTitle: true,
             leading: const NotificationButton(),
             title: Text(
-              isTeacher ? 'LỚP HỌC' : 'QUẢN LÝ LỊCH TẬP',
+              isTeacherOrStudent ? 'LỚP HỌC' : 'QUẢN LÝ LỊCH TẬP',
               style: const TextStyle(
                 color: RentsColors.black,
                 fontWeight: FontWeight.w900,
@@ -1240,7 +1242,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
               ),
             ),
             actions: [
-              if (!isTeacher) ...[
+              if (!isTeacherOrStudent) ...[
                 IconButton(
                   icon: const Icon(
                     Icons.filter_list_rounded,
@@ -1251,10 +1253,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
               ],
               IconButton(
                 icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue),
-                onPressed: isTeacher ? _fetchClasses : (_tabController.index == 0 ? _fetchBookings : _fetchClasses),
+                onPressed: isTeacherOrStudent ? _fetchClasses : (_tabController.index == 0 ? _fetchBookings : _fetchClasses),
               ),
             ],
-            bottom: isTeacher ? null : TabBar(
+            bottom: isTeacherOrStudent ? null : TabBar(
               controller: _tabController,
               labelColor: RentsColors.primaryBlue,
               unselectedLabelColor: RentsColors.grayDark,
@@ -1267,14 +1269,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
               ],
             ),
           ),
-          body: isTeacher ? _buildClassesTab() : TabBarView(
+          body: isTeacherOrStudent ? _buildClassesTab() : TabBarView(
             controller: _tabController,
             children: [
               _buildBookingsTab(grouped),
               _buildClassesTab(),
             ],
           ),
-          floatingActionButton: (isTeacher || (isStaff && _tabController.index == 1)) ? null : FloatingActionButton(
+          floatingActionButton: isTeacherOrStudent ? null : FloatingActionButton(
             backgroundColor: RentsColors.primaryBlue,
             elevation: 4,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1967,6 +1969,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
     final total = cls['total_sessions'] ?? 0;
     final imageUrl = cls['course_image_url'];
     final isTeacher = globalRole.value == 'teacher';
+    final isStudent = globalRole.value == 'student';
+    final isTeacherOrStudent = isTeacher || isStudent;
     final bool isInSession = cls['is_in_session'] == 1 || cls['is_in_session'] == true;
     
     showModalBottomSheet(
@@ -2025,7 +2029,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: RentsColors.black),
                     ),
                   ),
-                  if (!isTeacher)
+                  if (!isTeacherOrStudent)
                     IconButton(
                       icon: const Icon(Icons.edit_outlined, color: RentsColors.primaryBlue),
                       padding: EdgeInsets.zero,
@@ -2158,7 +2162,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
               ),
               const SizedBox(height: 24),
               // Action Buttons
-              Row(
+              if (!isStudent) ...[
+                Row(
                 children: [
                   Expanded(
                     child: _buildActionButton(
@@ -2222,8 +2227,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                       },
                     ),
                   ),
-                  if (!isTeacher) const SizedBox(width: 12),
-                  if (!isTeacher)
+                  if (!isTeacherOrStudent) const SizedBox(width: 12),
+                  if (!isTeacherOrStudent)
                     Expanded(
                       child: _buildActionButton(
                         'Xóa',
@@ -2238,6 +2243,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                     ),
                 ],
               ),
+              ],
             ],
           ),
         );

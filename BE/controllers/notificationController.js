@@ -18,6 +18,17 @@ exports.getAllNotifications = async (req, res) => {
         whereClause = `WHERE n.user_id = ?`;
         params = [userId];
       }
+    } else if (role === 'student') {
+      const [student] = await db.query('SELECT id FROM students WHERE user_id = ?', [userId]);
+      if (student.length > 0) {
+        whereClause = `WHERE n.user_id = ? 
+                       OR (n.type = 'class' AND c.id IN (SELECT class_id FROM class_enrollments WHERE student_id = ? AND class_id IS NOT NULL))
+                       OR (n.type = 'payment' AND ce_pay.student_id = ?)`;
+        params = [userId, student[0].id, student[0].id];
+      } else {
+        whereClause = `WHERE n.user_id = ?`;
+        params = [userId];
+      }
     }
 
     const [rows] = await db.query(
@@ -146,6 +157,24 @@ exports.getUnreadCount = async (req, res) => {
         query = 'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = FALSE';
         params = [userId];
       }
+    } else if (role === 'student') {
+      const [student] = await db.query('SELECT id FROM students WHERE user_id = ?', [userId]);
+      if (student.length > 0) {
+        query = `
+          SELECT COUNT(*) as count 
+          FROM notifications n
+          LEFT JOIN classes c ON n.related_id = c.id AND n.type = 'class'
+          LEFT JOIN class_enrollments ce_pay ON n.related_id = ce_pay.id AND n.type = 'payment'
+          WHERE (n.user_id = ? 
+                 OR (n.type = 'class' AND c.id IN (SELECT class_id FROM class_enrollments WHERE student_id = ? AND class_id IS NOT NULL))
+                 OR (n.type = 'payment' AND ce_pay.student_id = ?)) 
+                 AND n.is_read = FALSE
+        `;
+        params = [userId, student[0].id, student[0].id];
+      } else {
+        query = 'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = FALSE';
+        params = [userId];
+      }
     }
     
     const [rows] = await db.query(query, params);
@@ -172,6 +201,21 @@ exports.markAllRead = async (req, res) => {
           SET n.is_read = TRUE 
           WHERE n.user_id = ? OR (n.type = 'class' AND c.instructor_id = ?)
         `, [userId, instructor[0].id]);
+      } else {
+        await db.query('UPDATE notifications SET is_read = TRUE WHERE user_id = ?', [userId]);
+      }
+    } else if (role === 'student') {
+      const [student] = await db.query('SELECT id FROM students WHERE user_id = ?', [userId]);
+      if (student.length > 0) {
+        await db.query(`
+          UPDATE notifications n
+          LEFT JOIN classes c ON n.related_id = c.id AND n.type = 'class'
+          LEFT JOIN class_enrollments ce_pay ON n.related_id = ce_pay.id AND n.type = 'payment'
+          SET n.is_read = TRUE 
+          WHERE n.user_id = ? 
+             OR (n.type = 'class' AND c.id IN (SELECT class_id FROM class_enrollments WHERE student_id = ? AND class_id IS NOT NULL))
+             OR (n.type = 'payment' AND ce_pay.student_id = ?)
+        `, [userId, student[0].id, student[0].id]);
       } else {
         await db.query('UPDATE notifications SET is_read = TRUE WHERE user_id = ?', [userId]);
       }
@@ -220,7 +264,7 @@ exports.deleteMultipleNotifications = async (req, res) => {
     const role = req.user?.role;
     
     if (ids === 'all') {
-      if (role === 'teacher') {
+      if (role === 'teacher' || role === 'student') {
         // Just delete personal notifications, not global ones.
         // If we let them delete global class notifications, admins lose them. 
         // We will just let them delete notifications specifically sent to their user_id.

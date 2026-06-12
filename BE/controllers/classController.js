@@ -18,6 +18,14 @@ exports.getAllClasses = async (req, res) => {
       } else {
         where.push('1 = 0'); // No classes if no profile
       }
+    } else if (req.user && req.user.role === 'student') {
+      const [student] = await db.query('SELECT id FROM students WHERE user_id = ?', [req.user.id]);
+      if (student.length > 0) {
+        where.push('c.id IN (SELECT class_id FROM class_enrollments WHERE student_id = ? AND status != "dropped" AND class_id IS NOT NULL)');
+        params.push(student[0].id);
+      } else {
+        where.push('1 = 0');
+      }
     } else if (instructor_id) {
       where.push('c.instructor_id = ?');
       params.push(instructor_id);

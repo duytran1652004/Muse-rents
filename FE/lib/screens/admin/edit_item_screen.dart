@@ -32,10 +32,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
   File? _imageFile;
   final _picker = ImagePicker();
   bool _isLoading = false;
-  List<dynamic> _classes = [];
-  final Set<String> _selectedIds = {};
-  final Set<String> _initialSelectedIds = {};
-  bool _isLoadingClasses = false;
   String _status = 'active';
   bool get _isEditMode => widget.existingData != null;
 
@@ -74,85 +70,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
       } else {
         _status = widget.type == 'student' ? 'confirmed' : 'active';
       }
-      if (widget.type == 'student') {
-        _fetchClasses();
-      }
-    }
-  }
-
-  Future<void> _fetchStudentEnrollment() async {
-    try {
-      final studentId = widget.existingData!['id'];
-      final res = await ApiService.get('/enrollments?student_id=$studentId');
-      
-      if (res.statusCode == 200) {
-        final enrollments = json.decode(res.body);
-        if (enrollments.isNotEmpty) {
-          setState(() {
-            for (var enrollment in enrollments) {
-              if (enrollment['class_id'] != null) {
-                _tryPreSelect('class_${enrollment['class_id']}');
-              } else if (enrollment['course_id'] != null) {
-                _tryPreSelect('course_${enrollment['course_id']}');
-              }
-            }
-          });
-        }
-      }
-    } catch (_) {}
-  }
-
-  void _tryPreSelect(String uid) {
-    if (_classes.isEmpty) return;
-    try {
-      if (_classes.any((c) => c['unique_id'] == uid)) {
-        if (!_selectedIds.contains(uid)) {
-          setState(() {
-            _selectedIds.add(uid);
-            _initialSelectedIds.add(uid);
-          });
-        }
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _fetchClasses() async {
-    setState(() => _isLoadingClasses = true);
-    try {
-      final classRes = await ApiService.get('/classes');
-      final courseRes = await ApiService.get('/courses');
-      
-      List<dynamic> combined = [];
-      if (classRes.statusCode == 200) {
-        final data = json.decode(classRes.body);
-        if (data is List) {
-          combined.addAll(data.map((c) => {
-            ...c,
-            'unique_id': 'class_${c['id']}',
-            'display_name': c['class_name'] ?? c['name'] ?? ''
-          }));
-        }
-      }
-      if (courseRes.statusCode == 200) {
-        final data = json.decode(courseRes.body);
-        if (data is List) {
-          combined.addAll(data.map((c) => {
-            ...c,
-            'unique_id': 'course_${c['id']}',
-            'display_name': c['name'] ?? '',
-            'class_name': c['name']
-          }));
-        }
-      }
-      
-      setState(() {
-        _classes = combined;
-        _isLoadingClasses = false;
-        if (_isEditMode) _fetchStudentEnrollment();
-      });
-    } catch (e) {
-      debugPrint('Error fetching classes: $e');
-      setState(() => _isLoadingClasses = false);
     }
   }
 
@@ -269,25 +186,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Handle Enrollment (both Create and Edit mode for student)
-        if (widget.type == 'student' && _selectedIds.isNotEmpty) {
-          final studentId = _isEditMode ? widget.existingData!['id'] : json.decode(response.body)['id'];
-          if (studentId != null) {
-            for (String uid in _selectedIds) {
-              if (_isEditMode && _initialSelectedIds.contains(uid)) {
-                continue; // Skip already enrolled courses to prevent duplicates
-              }
-              final selected = _classes.firstWhere((c) => c['unique_id'] == uid);
-              final isClass = uid.startsWith('class_');
-              final id = selected['id'];
-              
-              await ApiService.post('/enrollments', {
-                'student_id': studentId,
-                if (isClass) 'class_id': id else 'course_id': id,
-              });
-            }
-          }
-        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(_isEditMode ? 'Cập nhật thành công!' : 'Thêm thành công!'), backgroundColor: RentsColors.accentGreen),
@@ -365,16 +263,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
                 if (widget.type == 'instructor') ...[
                   _buildInput(controller: _descriptionController, label: 'Giới thiệu / Kinh nghiệm', icon: Icons.description, maxLines: 3),
                 ],
-
-                if (widget.type == 'student' && !_isEditMode) ...[
-                  const Text('GÁN KHÓA HỌC (TÙY CHỌN)', style: TextStyle(fontWeight: FontWeight.bold, color: RentsColors.primaryBlue, fontSize: 13)),
-                  const SizedBox(height: 12),
-                  _buildClassDropdown(),
-                  if (_selectedIds.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _buildCourseInfoPreview(),
-                  ],
-                ],
               ],
               const SizedBox(height: 30),
               Container(
@@ -431,95 +319,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
         Icon(Icons.add_photo_alternate, size: 48, color: RentsColors.primaryBlue.withValues(alpha: 0.5)),
         const SizedBox(height: 8),
         Text('Nhấn để chọn ảnh', style: TextStyle(color: RentsColors.grayDark, fontSize: 14)),
-      ],
-    );
-  }
-
-  Widget _buildClassDropdown() {
-    if (_isLoadingClasses) {
-      return const Center(child: CircularProgressIndicator(color: RentsColors.primaryBlue));
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Đăng ký khóa học/lớp học (có thể chọn nhiều)',
-          style: TextStyle(color: RentsColors.grayDark, fontSize: 14, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _classes.map((c) {
-            final String uid = c['unique_id'];
-            final bool isSelected = _selectedIds.contains(uid);
-            return FilterChip(
-              label: Text(c['display_name'] ?? c['class_name'] ?? 'Lớp học'),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (_isEditMode && !selected && _initialSelectedIds.contains(uid)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Không thể hủy lớp/khóa học đã tham gia!'), backgroundColor: RentsColors.accentRed),
-                  );
-                  return;
-                }
-                setState(() {
-                  if (selected) {
-                    _selectedIds.add(uid);
-                  } else {
-                    _selectedIds.remove(uid);
-                  }
-                });
-              },
-              selectedColor: RentsColors.primaryBlue.withValues(alpha: 0.2),
-              checkmarkColor: RentsColors.primaryBlue,
-              labelStyle: TextStyle(
-                color: isSelected ? RentsColors.primaryBlue : RentsColors.grayDark,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCourseInfoPreview() {
-    if (_selectedIds.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: RentsColors.primaryBlue.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RentsColors.primaryBlue.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.info_outline, color: RentsColors.primaryBlue, size: 20),
-          const SizedBox(width: 8),
-          Text('Đã chọn ${_selectedIds.length} khóa học / lớp học', style: const TextStyle(fontWeight: FontWeight.bold, color: RentsColors.primaryBlue)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreviewRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: RentsColors.primaryBlue.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 18, color: RentsColors.primaryBlue),
-        ),
-        const SizedBox(width: 12),
-        Text(label, style: const TextStyle(color: RentsColors.grayDark, fontSize: 14, fontWeight: FontWeight.w500)),
-        const Spacer(),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: RentsColors.black)),
       ],
     );
   }

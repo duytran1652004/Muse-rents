@@ -440,8 +440,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 icon: Icons.dashboard_rounded,
                                 color: const Color(0xFF2ECC71),
                                 children: [
-                                  if (role == 'admin') ...[
-                                    _buildMenuItem(
+                                if (role == 'admin' || role == 'staff') ...[
+                                  _buildMenuItem(
                                       Icons.manage_accounts_outlined,
                                       'QUẢN LÝ TÀI KHOẢN',
                                       'Phân quyền, sửa đổi chức vụ',

@@ -155,7 +155,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
     return ValueListenableBuilder<String>(
       valueListenable: globalRole,
       builder: (context, role, child) {
-        final isAdmin = role == 'admin';
+        final isAdminOrStaff = role == 'admin' || role == 'staff';
         return Scaffold(
           backgroundColor: RentsColors.bgLightBlue,
           appBar: _buildAppBar(),
@@ -173,7 +173,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
           ),
         ],
       ),
-      floatingActionButton: (isAdmin && isStudentTab) ? FloatingActionButton(
+      floatingActionButton: (isAdminOrStaff && isStudentTab) ? FloatingActionButton(
         onPressed: () => _openEditStudent(null),
         backgroundColor: RentsColors.primaryBlue,
         child: const Icon(Icons.person_add, color: Colors.white),

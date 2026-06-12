@@ -16,6 +16,7 @@ class UserManagementScreen extends StatefulWidget {
 class _UserManagementScreenState extends State<UserManagementScreen> {
   List<dynamic> _users = [];
   List<dynamic> _filteredUsers = [];
+  List<dynamic> _students = [];
   bool _isLoading = true;
   String _searchQuery = '';
   String _roleFilter = 'all';
@@ -26,6 +27,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   void initState() {
     super.initState();
     _fetchUsers();
+    _fetchStudents();
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase();
@@ -38,6 +40,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchStudents() async {
+    try {
+      final res = await ApiService.get('/students');
+      if (res.statusCode == 200 && mounted) {
+        setState(() {
+          _students = json.decode(res.body);
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchUsers() async {
@@ -108,10 +121,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     labelText: 'Vai trò',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'admin', child: Text('Quản trị viên')),
-                    DropdownMenuItem(value: 'staff', child: Text('Nhân viên')),
-                    DropdownMenuItem(value: 'teacher', child: Text('Giáo viên')),
+                  items: [
+                    if (globalRole.value == 'admin')
+                      const DropdownMenuItem(value: 'admin', child: Text('Quản trị viên')),
+                    const DropdownMenuItem(value: 'staff', child: Text('Nhân viên')),
+                    const DropdownMenuItem(value: 'teacher', child: Text('Giáo viên')),
+                    const DropdownMenuItem(value: 'student', child: Text('Học viên')),
                   ],
                   onChanged: (v) {
                     if (v != null) setState(() => selectedRole = v);
@@ -144,6 +159,107 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 }
               },
               child: const Text('Lưu', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _approveUserDialog(Map<String, dynamic> user) async {
+    final nameController = TextEditingController(text: user['full_name']);
+    final phoneController = TextEditingController(text: user['phone_number']);
+    final emailController = TextEditingController(text: user['email']);
+    String selectedRole = user['role'] ?? 'student';
+    int? selectedStudentId;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Duyệt Tài Khoản', style: TextStyle(fontWeight: FontWeight.w800)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(labelText: 'Họ và tên', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: phoneController,
+                  decoration: InputDecoration(labelText: 'Số điện thoại', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedRole,
+                  decoration: InputDecoration(labelText: 'Vai trò', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                  items: [
+                    if (globalRole.value == 'admin')
+                      const DropdownMenuItem(value: 'admin', child: Text('Quản trị viên')),
+                    const DropdownMenuItem(value: 'staff', child: Text('Nhân viên')),
+                    const DropdownMenuItem(value: 'teacher', child: Text('Giáo viên')),
+                    const DropdownMenuItem(value: 'student', child: Text('Học viên')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => selectedRole = v);
+                  },
+                ),
+                if (selectedRole == 'student') ...[
+                  const SizedBox(height: 12),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Gán vào học viên đã có (Tùy chọn):', style: TextStyle(fontSize: 12, color: RentsColors.grayDark)),
+                  ),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<int>(
+                    value: selectedStudentId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('Tạo học viên mới')),
+                      ..._students.map((s) => DropdownMenuItem(value: s['id'] as int, child: Text('${s['name']} - ${s['phone'] ?? ''}')))
+                    ],
+                    onChanged: (v) {
+                      setDialogState(() => selectedStudentId = v);
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: RentsColors.accentGreen),
+              onPressed: () async {
+                Navigator.pop(ctx, true);
+                try {
+                  final res = await ApiService.put('/users/${user['id']}', {
+                    'full_name': nameController.text,
+                    'phone_number': phoneController.text,
+                    'email': emailController.text,
+                    'role': selectedRole,
+                    'status': 'active',
+                    if (selectedRole == 'student' && selectedStudentId != null) 'linked_student_id': selectedStudentId,
+                  });
+                  if (res.statusCode == 200) {
+                    _fetchUsers();
+                  } else {
+                    final data = json.decode(res.body);
+                    ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text(data['message'] ?? 'Lỗi')));
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('Lỗi kết nối')));
+                }
+              },
+              child: const Text('Xác nhận', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -186,33 +302,60 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: RentsColors.bgLightBlue,
-      appBar: AppBar(
-        centerTitle: true,
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
         backgroundColor: RentsColors.bgLightBlue,
-        elevation: 0,
-        title: const Text('QUẢN LÝ TÀI KHOẢN', style: TextStyle(color: RentsColors.black, fontWeight: FontWeight.w800, fontSize: 20)),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue), onPressed: _fetchUsers),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildSearchAndFilter(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: RentsColors.primaryBlue))
-                : _filteredUsers.isEmpty
-                    ? const Center(child: Text('Không tìm thấy tài khoản nào'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: _filteredUsers.length,
-                        itemBuilder: (context, index) => _buildUserCard(_filteredUsers[index]),
-                      ),
+        appBar: AppBar(
+          centerTitle: true,
+          backgroundColor: RentsColors.bgLightBlue,
+          elevation: 0,
+          leading: const NotificationButton(),
+          title: const Text('QUẢN LÝ TÀI KHOẢN', style: TextStyle(color: RentsColors.black, fontWeight: FontWeight.w800, fontSize: 20)),
+          actions: [
+            IconButton(icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue), onPressed: () { _fetchUsers(); _fetchStudents(); }),
+          ],
+          bottom: const TabBar(
+            labelColor: RentsColors.primaryBlue,
+            unselectedLabelColor: RentsColors.grayDark,
+            indicatorColor: RentsColors.primaryBlue,
+            indicatorWeight: 3,
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            tabs: [
+              Tab(text: 'Tài khoản'),
+              Tab(text: 'Xác nhận'),
+            ],
           ),
-        ],
+        ),
+        body: Column(
+          children: [
+            _buildSearchAndFilter(),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildUserList('active'),
+                  _buildUserList('pending'),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildUserList(String status) {
+    final list = _filteredUsers.where((u) => (u['status'] ?? 'active') == status).toList();
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: RentsColors.primaryBlue));
+    }
+    if (list.isEmpty) {
+      return Center(child: Text(status == 'active' ? 'Không tìm thấy tài khoản nào' : 'Không có yêu cầu xác nhận nào'));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: list.length,
+      itemBuilder: (context, index) => _buildUserCard(list[index]),
     );
   }
 
@@ -254,6 +397,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 _buildFilterChip('staff', 'Staff'),
                 const SizedBox(width: 8),
                 _buildFilterChip('teacher', 'Teacher'),
+                const SizedBox(width: 8),
+                _buildFilterChip('student', 'Student'),
               ],
             ),
           ),
@@ -306,6 +451,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       case 'teacher':
         roleColor = const Color(0xFF2ECC71);
         roleName = 'Teacher';
+        break;
+      case 'student':
+        roleColor = const Color(0xFF9B59B6);
+        roleName = 'Student';
         break;
       default:
         roleColor = const Color(0xFF3498DB);
@@ -371,8 +520,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             ),
             Row(
               children: [
-                IconButton(icon: const Icon(Icons.edit, color: RentsColors.primaryBlue), onPressed: () => _editUser(user)),
-                IconButton(icon: const Icon(Icons.delete, color: RentsColors.accentRed), onPressed: () => _deleteUser(user['id'])),
+                if (user['status'] == 'pending') ...[
+                  ElevatedButton(
+                    onPressed: () => _approveUserDialog(user),
+                    style: ElevatedButton.styleFrom(backgroundColor: RentsColors.accentGreen, minimumSize: const Size(80, 36)),
+                    child: const Text('Duyệt', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                  IconButton(icon: const Icon(Icons.close, color: RentsColors.accentRed), onPressed: () => _deleteUser(user['id'])),
+                ] else if (globalRole.value == 'admin' || user['role'] != 'admin') ...[
+                  IconButton(icon: const Icon(Icons.edit, color: RentsColors.primaryBlue), onPressed: () => _editUser(user)),
+                  IconButton(icon: const Icon(Icons.delete, color: RentsColors.accentRed), onPressed: () => _deleteUser(user['id'])),
+                ]
               ],
             )
           ],

@@ -11,22 +11,14 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: 'Số điện thoại, Email hoặc Tên tài khoản đã tồn tại' });
     }
 
-    const assignedRole = role && ['admin', 'staff', 'teacher'].includes(role) ? role : 'staff';
+    const assignedRole = role && ['admin', 'staff', 'teacher', 'student'].includes(role) ? role : 'student';
     const hashedPassword = await bcrypt.hash(password, 10);
     const [result] = await pool.query(
-      'INSERT INTO users (full_name, phone_number, username, email, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
-      [full_name, phone, username, email, hashedPassword, assignedRole]
+      'INSERT INTO users (full_name, phone_number, username, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [full_name, phone, username, email, hashedPassword, assignedRole, 'pending']
     );
 
-    const userId = result.insertId;
-
-    if (assignedRole === 'teacher') {
-      await pool.query(
-        'INSERT INTO instructors (name, phone, email, status, user_id) VALUES (?, ?, ?, ?, ?)',
-        [full_name, phone, email, 'active', userId]
-      );
-    }
-
+    // Bỏ việc tạo học viên hoặc giáo viên ở đây, việc này sẽ được làm khi duyệt tài khoản.
 
     res.json({ message: 'Đăng ký thành công', userId: result.insertId });
   } catch (err) {
@@ -47,6 +39,15 @@ exports.login = async (req, res) => {
     }
 
     const user = users[0];
+    
+    if (user.status === 'pending') {
+      return res.status(403).json({ error: 'Tài khoản của bạn đang chờ quản trị viên xác nhận' });
+    }
+    
+    if (user.status === 'inactive') {
+      return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa' });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
     
     if (!isMatch) {

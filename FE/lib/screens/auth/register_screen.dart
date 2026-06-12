@@ -18,8 +18,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String _selectedRole = 'staff';
+  String _selectedRole = 'student';
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> _register() async {
     if (_fullNameController.text.isEmpty || _phoneController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -51,7 +52,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (response.statusCode == 200) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đăng ký thành công! Vui lòng đăng nhập.'), backgroundColor: RentsColors.accentGreen),
+            const SnackBar(content: Text('Đã gửi yêu cầu đăng ký. Vui lòng chờ quản trị viên duyệt.'), backgroundColor: RentsColors.accentGreen),
           );
           Navigator.pop(context);
         }
@@ -138,6 +139,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hint: 'Mật khẩu *',
                     icon: Icons.lock_outline,
                     isPassword: true,
+                    obscureText: _obscurePassword,
+                    onTogglePassword: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
                   ),
                   const SizedBox(height: 15),
                   Container(
@@ -158,6 +165,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         items: const [
                           DropdownMenuItem(value: 'staff', child: Text('Nhân viên (Staff)')),
                           DropdownMenuItem(value: 'teacher', child: Text('Giáo viên (Teacher)')),
+                          DropdownMenuItem(value: 'student', child: Text('Học viên (Student)')),
                         ],
                         onChanged: (String? newValue) {
                           if (newValue != null) {
@@ -219,6 +227,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String hint,
     required IconData icon,
     bool isPassword = false,
+    bool obscureText = false,
+    VoidCallback? onTogglePassword,
     TextInputType keyboardType = TextInputType.text,
   }) {
     return Container(
@@ -231,13 +241,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       child: TextField(
         controller: controller,
-        obscureText: isPassword,
+        obscureText: isPassword ? obscureText : false,
         keyboardType: keyboardType,
         style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.w600),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(color: RentsColors.grayDark.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
           prefixIcon: Icon(icon, color: RentsColors.primaryBlue),
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    color: RentsColors.grayMedium,
+                  ),
+                  onPressed: onTogglePassword,
+                )
+              : null,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
             borderSide: BorderSide(color: RentsColors.primaryBlue.withValues(alpha: 0.1)),

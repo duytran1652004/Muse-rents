@@ -7,7 +7,15 @@ exports.getEnrollments = async (req, res) => {
     let whereClause = [];
     let params = [];
     
-    if (student_id) { 
+    if (req.user && req.user.role === 'student') {
+      const [student] = await db.query('SELECT id FROM students WHERE user_id = ?', [req.user.id]);
+      if (student.length > 0) {
+        whereClause.push('ce.student_id = ?');
+        params.push(student[0].id);
+      } else {
+        whereClause.push('1 = 0');
+      }
+    } else if (student_id) { 
       whereClause.push('ce.student_id = ?'); 
       params.push(student_id); 
     }
