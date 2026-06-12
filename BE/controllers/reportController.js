@@ -16,7 +16,7 @@ exports.getDashboardStats = async (req, res) => {
     const [revenue] = await pool.query(`
       SELECT SUM(price) as total 
       FROM bookings 
-      WHERE status IN ('confirmed', 'completed') 
+      WHERE status = 'completed' 
       AND MONTH(booking_date) = MONTH(CURRENT_DATE())
       AND YEAR(booking_date) = YEAR(CURRENT_DATE())
     `);
@@ -63,7 +63,7 @@ exports.getRevenueReport = async (req, res) => {
       FROM bookings b
       LEFT JOIN rooms r ON b.room_id = r.id
       LEFT JOIN students s ON b.student_id = s.id
-      WHERE b.status IN ('confirmed', 'completed')
+      WHERE b.status = 'completed'
       AND r.id IS NOT NULL
       AND ${bookingWhere.replace('booking_date', 'b.booking_date')}
       ORDER BY b.booking_date DESC, b.start_time DESC
@@ -76,7 +76,8 @@ exports.getRevenueReport = async (req, res) => {
     const [enrollmentData] = await pool.query(`
       SELECT 
         ce.id, ce.enrollment_date, ce.status,
-        c.class_name, co.name as course_name, co.image_url as course_image_url, IFNULL(co.price, 0) as price,
+        ce.payment_type, ce.payment_status_1, ce.payment_status_2,
+        c.class_name, co.name as course_name, co.image_url as course_image_url, IFNULL(co.price, c.price_per_class) as price,
         s.name as student_name
       FROM class_enrollments ce
       LEFT JOIN classes c ON ce.class_id = c.id
@@ -90,7 +91,18 @@ exports.getRevenueReport = async (req, res) => {
     `, queryParams);
     
     let courseRevenue = 0;
-    enrollmentData.forEach(e => courseRevenue += parseFloat(e.price || 0));
+    enrollmentData.forEach(e => {
+      const fullPrice = parseFloat(e.price || 0);
+      let paid = 0;
+      if (e.payment_type === '100%') {
+        if (e.payment_status_1 === 'completed') paid += fullPrice;
+      } else { // 50%
+        if (e.payment_status_1 === 'completed') paid += fullPrice / 2;
+        if (e.payment_status_2 === 'completed') paid += fullPrice / 2;
+      }
+      courseRevenue += paid;
+      e.paid_amount = paid;
+    });
     const courseRegistrations = enrollmentData.length;
 
     res.json({

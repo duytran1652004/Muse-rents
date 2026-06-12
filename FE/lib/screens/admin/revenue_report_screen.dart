@@ -559,7 +559,7 @@ class _RevenueReportScreenState extends State<RevenueReportScreen> with SingleTi
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '+${_formatCurrency(double.tryParse(e['price']?.toString() ?? '0') ?? 0)}',
+                '+${_formatCurrency(double.tryParse(e['paid_amount']?.toString() ?? e['price']?.toString() ?? '0') ?? 0)}',
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFFFF6B35)),
               ),
               const SizedBox(height: 4),
