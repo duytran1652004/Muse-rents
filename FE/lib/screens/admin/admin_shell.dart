@@ -180,7 +180,7 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
                 _buildNavItem(2, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
               ] : isStudent ? [
                 _buildNavItem(0, Icons.school_rounded, Icons.school_outlined, 'Khóa của tôi'),
-                _buildNavItem(1, Icons.library_books_rounded, Icons.library_books_outlined, 'Tham khảo'),
+                _buildNavItem(1, Icons.library_books_rounded, Icons.library_books_outlined, 'Khóa học'),
                 _buildNavItem(2, Icons.people_rounded, Icons.people_outline_rounded, 'Giáo viên'),
                 _buildNavItem(3, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
               ] : [

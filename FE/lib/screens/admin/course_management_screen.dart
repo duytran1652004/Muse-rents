@@ -102,10 +102,11 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
     return ValueListenableBuilder<String>(
       valueListenable: globalRole,
       builder: (context, role, child) {
+        final isStudent = role == 'student';
         final isAdmin = role == 'admin';
         return Scaffold(
           backgroundColor: RentsColors.bgLightBlue,
-          appBar: _buildAppBar(),
+          appBar: _buildAppBar(isStudent),
           body: Column(
         children: [
           _buildSearchAndFilter(),
@@ -139,15 +140,15 @@ class _CourseManagementScreenState extends State<CourseManagementScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(bool isStudent) {
     return AppBar(
       centerTitle: true,
       backgroundColor: RentsColors.bgLightBlue,
       elevation: 0,
       leading: const NotificationButton(),
-      title: const Text(
-        'QUẢN LÝ KHÓA HỌC',
-        style: TextStyle(
+      title: Text(
+        isStudent ? 'KHÓA HỌC' : 'QUẢN LÝ KHÓA HỌC',
+        style: const TextStyle(
           color: RentsColors.black,
           fontWeight: FontWeight.w800,
           fontSize: 20,
