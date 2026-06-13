@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../theme/rents_colors.dart';
 import '../../utils/globals.dart';
@@ -36,6 +39,10 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
   int _lastCount = 0;
   // IDs tin nhắn đang ẩn cục bộ (chỉ trong phiên này)
   final Set<int> _hiddenMessageIds = {};
+
+  File? _selectedFile;
+  String? _selectedFileName;
+  String? _selectedFileType;
 
   @override
   void initState() {
@@ -671,13 +678,21 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                               ),
                             ],
                           ),
-                          child: Text(
-                            message['message'] ?? '',
-                            style: TextStyle(
-                              color: isMe ? Colors.white : RentsColors.black,
-                              fontSize: 15,
-                              height: 1.4,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                            children: [
+                              if (message['file_url'] != null || message['file_name'] != null)
+                                _buildFileAttachment(message, isMe),
+                              if ((message['message']?.toString() ?? '').isNotEmpty)
+                                Text(
+                                  message['message'] ?? '',
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white : RentsColors.black,
+                                    fontSize: 15,
+                                    height: 1.4,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
@@ -721,32 +736,141 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     final emojis = counts.keys.toList();
     final total = reactions.length;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: RentsColors.grayLight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          )
-        ],
+    return GestureDetector(
+      onTap: () => _showReactionsDetails(reactions),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: RentsColors.grayLight),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            )
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...emojis.map((e) => Text(e, style: const TextStyle(fontSize: 12))),
+            if (total > 1) ...[
+              const SizedBox(width: 2),
+              Text(
+                '$total',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: RentsColors.primaryBlue),
+              ),
+            ]
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ...emojis.map((e) => Text(e, style: const TextStyle(fontSize: 12))),
-          if (total > 1) ...[
-            const SizedBox(width: 2),
-            Text(
-              '$total',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: RentsColors.primaryBlue),
+    );
+  }
+
+  void _showReactionsDetails(List reactions) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: RentsColors.grayMedium, borderRadius: BorderRadius.circular(2))),
+              const Text('Cảm xúc', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Divider(),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: reactions.map((r) => ListTile(
+                      leading: Text(r['reaction'] ?? '', style: const TextStyle(fontSize: 24)),
+                      title: Text(r['user_name'] ?? 'Người dùng', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    )).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileAttachment(dynamic message, bool isMe) {
+    final fileUrl = message['file_url'];
+    final fileName = message['file_name'] ?? 'Tập tin đính kèm';
+    final fileType = message['file_type'] ?? 'file';
+
+    if (fileType == 'image' && fileUrl != null) {
+      return GestureDetector(
+        onTap: () async {
+          final url = Uri.parse(ApiService.getImageUrl(fileUrl));
+          if (await canLaunchUrl(url)) await launchUrl(url);
+        },
+        child: Container(
+          margin: EdgeInsets.only(bottom: (message['message']?.toString() ?? '').isNotEmpty ? 8 : 0),
+          constraints: const BoxConstraints(maxHeight: 200),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            image: DecorationImage(
+              image: NetworkImage(ApiService.getImageUrl(fileUrl)),
+              fit: BoxFit.cover,
             ),
-          ]
-        ],
+          ),
+          child: AspectRatio(aspectRatio: 16/9, child: Container()),
+        ),
+      );
+    }
+
+    // Các file khác (pdf, doc, xls, ppt, ...)
+    IconData iconData = Icons.insert_drive_file;
+    Color iconColor = RentsColors.primaryBlue;
+    if (fileType == 'pdf') { iconData = Icons.picture_as_pdf; iconColor = RentsColors.accentRed; }
+    else if (fileType == 'word') { iconData = Icons.description; iconColor = const Color(0xFF2B579A); }
+    else if (fileType == 'excel') { iconData = Icons.table_chart; iconColor = const Color(0xFF217346); }
+    else if (fileType == 'ppt') { iconData = Icons.slideshow; iconColor = const Color(0xFFD24726); }
+
+    return GestureDetector(
+      onTap: () async {
+        if (fileUrl != null) {
+          final url = Uri.parse(ApiService.getImageUrl(fileUrl));
+          if (await canLaunchUrl(url)) await launchUrl(url);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        margin: EdgeInsets.only(bottom: (message['message']?.toString() ?? '').isNotEmpty ? 8 : 0),
+        decoration: BoxDecoration(
+          color: isMe ? Colors.white.withValues(alpha: 0.2) : RentsColors.bgGray,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isMe ? Colors.white.withValues(alpha: 0.3) : RentsColors.grayLight),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(iconData, color: isMe ? Colors.white : iconColor, size: 24),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                fileName,
+                style: TextStyle(
+                  color: isMe ? Colors.white : RentsColors.black,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -937,29 +1061,102 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // TextField
+                    // Cột input
                     Expanded(
-                      child: Container(
-                        constraints: const BoxConstraints(maxHeight: 130),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0F2F5),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: TextField(
-                          controller: _msgCtrl,
-                          focusNode: _focusNode,
-                          maxLines: null,
-                          keyboardType: TextInputType.multiline,
-                          textCapitalization: TextCapitalization.sentences,
-                          style: const TextStyle(fontSize: 15, color: RentsColors.black),
-                          decoration: const InputDecoration(
-                            hintText: 'Nhập tin nhắn...',
-                            hintStyle: TextStyle(color: RentsColors.grayDark, fontSize: 15),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                            border: InputBorder.none,
-                            isDense: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_selectedFile != null)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: RentsColors.bgLightBlue,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: RentsColors.primaryBlue.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _selectedFileType == 'image' ? Icons.image : Icons.insert_drive_file,
+                                    color: RentsColors.primaryBlue,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _selectedFileName ?? 'Tập tin đính kèm',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 12, color: RentsColors.black, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () => setState(() {
+                                      _selectedFile = null;
+                                      _selectedFileName = null;
+                                      _selectedFileType = null;
+                                    }),
+                                    child: const Icon(Icons.close, size: 18, color: RentsColors.grayDark),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 130),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0F2F5),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.attach_file, color: RentsColors.grayDark),
+                                  onPressed: () async {
+                                    try {
+                                      FilePickerResult? result = await FilePicker.pickFiles(
+                                        type: FileType.custom,
+                                        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'],
+                                      );
+                                      if (result != null && result.files.single.path != null) {
+                                        setState(() {
+                                          _selectedFile = File(result.files.single.path!);
+                                          _selectedFileName = result.files.single.name;
+                                          final ext = result.files.single.extension?.toLowerCase();
+                                          if (['jpg', 'jpeg', 'png'].contains(ext)) _selectedFileType = 'image';
+                                          else if (ext == 'pdf') _selectedFileType = 'pdf';
+                                          else if (['doc', 'docx'].contains(ext)) _selectedFileType = 'word';
+                                          else if (['xls', 'xlsx'].contains(ext)) _selectedFileType = 'excel';
+                                          else if (['ppt', 'pptx'].contains(ext)) _selectedFileType = 'ppt';
+                                          else _selectedFileType = 'file';
+                                        });
+                                      }
+                                    } catch (_) {
+                                      _showError('Không thể chọn file');
+                                    }
+                                  },
+                                ),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _msgCtrl,
+                                    focusNode: _focusNode,
+                                    maxLines: null,
+                                    keyboardType: TextInputType.multiline,
+                                    textCapitalization: TextCapitalization.sentences,
+                                    style: const TextStyle(fontSize: 15, color: RentsColors.black),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Nhập tin nhắn...',
+                                      hintStyle: TextStyle(color: RentsColors.grayDark, fontSize: 15),
+                                      contentPadding: EdgeInsets.symmetric(vertical: 12),
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -968,7 +1165,7 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                     ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _msgCtrl,
                       builder: (context, value, child) {
-                        final hasText = value.text.trim().isNotEmpty;
+                        final hasText = value.text.trim().isNotEmpty || _selectedFile != null;
                         return GestureDetector(
                           onTap: (_isSending || !hasText) ? null : _sendMessage,
                           child: AnimatedContainer(

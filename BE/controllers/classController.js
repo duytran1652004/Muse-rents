@@ -384,6 +384,9 @@ exports.getClassMessages = async (req, res) => {
         m.class_id,
         m.sender_id,
         m.message,
+        m.file_url,
+        m.file_name,
+        m.file_type,
         m.is_deleted,
         m.created_at,
         u.full_name as sender_name,
@@ -433,13 +436,28 @@ exports.sendClassMessage = async (req, res) => {
     }
 
     const { message } = req.body;
-    if (!message || !message.trim()) {
+    if ((!message || !message.trim()) && !req.file) {
       return res.status(400).json({ message: 'Tin nhắn không được để trống.' });
     }
 
+    let fileUrl = null;
+    let fileName = null;
+    let fileType = null;
+    if (req.file) {
+      fileUrl = `/uploads/${req.file.filename}`;
+      fileName = req.file.originalname;
+      const mime = req.file.mimetype;
+      if (mime.startsWith('image/')) fileType = 'image';
+      else if (mime.includes('pdf')) fileType = 'pdf';
+      else if (mime.includes('word') || mime.includes('document')) fileType = 'word';
+      else if (mime.includes('excel') || mime.includes('sheet')) fileType = 'excel';
+      else if (mime.includes('powerpoint') || mime.includes('presentation')) fileType = 'ppt';
+      else fileType = 'file';
+    }
+
     const [result] = await db.query(
-      'INSERT INTO class_messages (class_id, sender_id, message) VALUES (?, ?, ?)',
-      [classId, userId, message.trim()]
+      'INSERT INTO class_messages (class_id, sender_id, message, file_url, file_name, file_type) VALUES (?, ?, ?, ?, ?, ?)',
+      [classId, userId, message ? message.trim() : '', fileUrl, fileName, fileType]
     );
 
     // Trả về tin nhắn vừa lưu kèm thông tin người gửi
@@ -449,6 +467,9 @@ exports.sendClassMessage = async (req, res) => {
         m.class_id,
         m.sender_id,
         m.message,
+        m.file_url,
+        m.file_name,
+        m.file_type,
         m.created_at,
         u.full_name as sender_name,
         u.avatar_image as sender_avatar,

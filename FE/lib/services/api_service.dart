@@ -42,6 +42,22 @@ class ApiService {
     return response;
   }
 
+  static Future<http.Response> postMultipart(String endpoint, Map<String, String> fields, {String? filePath, String? fileField}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl$endpoint'));
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    request.fields.addAll(fields);
+    
+    if (filePath != null && fileField != null) {
+      request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+    }
+    
+    final streamedResponse = await request.send().timeout(timeoutDuration);
+    return await http.Response.fromStream(streamedResponse);
+  }
+
   static Future<http.Response> put(String endpoint, dynamic body) async {
     final headers = await _getHeaders();
     final response = await http.put(
