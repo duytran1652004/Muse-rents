@@ -309,6 +309,32 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
             'Ngày đăng ký',
             _formatDate(_instructorData['created_at']),
           ),
+          if (_instructorData['bio'] != null && _instructorData['bio'].toString().isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, thickness: 0.5),
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.description_outlined, size: 18, color: RentsColors.primaryBlue),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Kinh nghiệm / Giới thiệu', style: TextStyle(color: RentsColors.grayDark, fontSize: 14)),
+                      const SizedBox(height: 4),
+                      Text(
+                        _instructorData['bio'].toString(),
+                        style: const TextStyle(color: RentsColors.black, fontSize: 14, fontWeight: FontWeight.w500, height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ]),
         const SizedBox(height: 16),
         if (canViewDetails) _buildActiveClassesSection(),

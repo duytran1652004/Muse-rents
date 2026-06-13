@@ -43,7 +43,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
     if (_isEditMode) {
       final d = widget.existingData!;
       _nameController.text = d['name'] ?? '';
-      _descriptionController.text = d['description'] ?? '';
+      _descriptionController.text = d['bio'] ?? d['description'] ?? '';
       
       final priceVal = (d['price'] ?? d['price_per_hour'] ?? '').toString();
       if (priceVal.isNotEmpty) {
