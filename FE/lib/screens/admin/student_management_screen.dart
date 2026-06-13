@@ -158,51 +158,53 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
         final isAdminOrStaff = role == 'admin' || role == 'staff';
         return Scaffold(
           backgroundColor: RentsColors.bgLightBlue,
-          appBar: _buildAppBar(),
+          appBar: _buildAppBar(isAdminOrStaff),
           body: Column(
-        children: [
-          _buildSearchAndFilter(isStudentTab),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildStudentList(),
-                _buildInstructorList(),
-              ],
-            ),
+            children: [
+              _buildSearchAndFilter(isAdminOrStaff ? isStudentTab : true),
+              Expanded(
+                child: isAdminOrStaff
+                    ? TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildStudentList(),
+                          _buildInstructorList(),
+                        ],
+                      )
+                    : _buildStudentList(), // Teacher chỉ xem Học viên
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: (isAdminOrStaff && isStudentTab) ? FloatingActionButton(
-        onPressed: () => _openEditStudent(null),
-        backgroundColor: RentsColors.primaryBlue,
-        child: const Icon(Icons.person_add, color: Colors.white),
-      ) : null,
-    );
+          floatingActionButton: (isAdminOrStaff && isStudentTab) ? FloatingActionButton(
+            onPressed: () => _openEditStudent(null),
+            backgroundColor: RentsColors.primaryBlue,
+            child: const Icon(Icons.person_add, color: Colors.white),
+          ) : null,
+        );
   },
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(bool isAdminOrStaff) {
     return AppBar(
       centerTitle: true,
       backgroundColor: RentsColors.bgLightBlue,
       elevation: 0,
       leading: const NotificationButton(),
-      title: const Text(
-        'NHÂN SỰ & HỌC VIÊN',
-        style: TextStyle(color: RentsColors.black, fontWeight: FontWeight.w800, fontSize: 20),
+      title: Text(
+        isAdminOrStaff ? 'NHÂN SỰ & HỌC VIÊN' : 'HỌC VIÊN',
+        style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.w800, fontSize: 20),
       ),
       actions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue),
           onPressed: () {
-            if (_tabController.index == 0) _fetchStudents();
+            if (_tabController.index == 0 || !isAdminOrStaff) _fetchStudents();
             else _fetchInstructors();
           },
         ),
       ],
-      bottom: TabBar(
+      bottom: isAdminOrStaff ? TabBar(
         controller: _tabController,
         labelColor: RentsColors.primaryBlue,
         unselectedLabelColor: RentsColors.grayDark,
@@ -213,7 +215,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
           Tab(text: 'Học viên'),
           Tab(text: 'Giáo viên'),
         ],
-      ),
+      ) : null,
     );
   }
 

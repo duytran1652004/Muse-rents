@@ -132,7 +132,9 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
         
         Widget currentScreen;
         if (isTeacher) {
-          currentScreen = _selectedIndex == 1 ? _screens[4] : _screens[0];
+          if (_selectedIndex == 0) currentScreen = _screens[0];
+          else if (_selectedIndex == 1) currentScreen = _screens[2];
+          else currentScreen = _screens[4];
         } else if (isStudent) {
           if (_selectedIndex == 0) currentScreen = _screens[5]; // StudentDashboardScreen
           else if (_selectedIndex == 1) currentScreen = _screens[3]; // CourseManagementScreen
@@ -173,7 +175,8 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: isTeacher ? [
                 _buildNavItem(0, Icons.calendar_month_rounded, Icons.calendar_month, 'Lớp học'),
-                _buildNavItem(1, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
+                _buildNavItem(1, Icons.people_rounded, Icons.people_outline_rounded, 'Học viên'),
+                _buildNavItem(2, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
               ] : isStudent ? [
                 _buildNavItem(0, Icons.school_rounded, Icons.school_outlined, 'Khóa của tôi'),
                 _buildNavItem(1, Icons.library_books_rounded, Icons.library_books_outlined, 'Tham khảo'),
