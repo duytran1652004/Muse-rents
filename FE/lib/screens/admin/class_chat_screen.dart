@@ -422,10 +422,21 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _msgCtrl.text.trim();
-    if (text.isEmpty || _isSending) return;
+    if (text.isEmpty && _selectedFile == null) return;
+    if (_isSending) return;
 
     setState(() => _isSending = true);
     _msgCtrl.clear();
+
+    final fileToSend = _selectedFile;
+    final fileName = _selectedFileName;
+    final fileType = _selectedFileType;
+
+    setState(() {
+      _selectedFile = null;
+      _selectedFileName = null;
+      _selectedFileType = null;
+    });
 
     // Optimistic UI: thêm tin nhắn tạm thời ngay lập tức
     final tempId = -DateTime.now().millisecondsSinceEpoch;
@@ -437,6 +448,10 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
       'sender_name': _myName.isNotEmpty ? _myName : 'Tôi',
       'sender_avatar': _myAvatar.isNotEmpty ? _myAvatar : null,
       'sender_role': globalRole.value,
+      'file_url': fileToSend?.path,
+      'file_name': fileName,
+      'file_type': fileType,
+      'is_local_file': fileToSend != null,
       '_sending': true,
     };
 
@@ -447,10 +462,20 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     _scrollToBottom();
 
     try {
-      final response = await ApiService.post(
-        '/classes/${widget.classId}/messages',
-        {'message': text},
-      );
+      var response;
+      if (fileToSend != null) {
+        response = await ApiService.postMultipart(
+          '/classes/${widget.classId}/messages',
+          {'message': text},
+          filePath: fileToSend.path,
+          fileField: 'file',
+        );
+      } else {
+        response = await ApiService.post(
+          '/classes/${widget.classId}/messages',
+          {'message': text},
+        );
+      }
 
       if (!mounted) return;
 
@@ -895,10 +920,11 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     final fileUrl = message['file_url'];
     final fileName = message['file_name'] ?? 'Tập tin đính kèm';
     final fileType = message['file_type'] ?? 'file';
+    final isLocal = message['is_local_file'] == true;
 
     if (fileType == 'image' && fileUrl != null) {
       return GestureDetector(
-        onTap: () async {
+        onTap: isLocal ? null : () async {
           final url = Uri.parse(ApiService.getImageUrl(fileUrl));
           if (await canLaunchUrl(url)) await launchUrl(url);
         },
@@ -908,7 +934,7 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             image: DecorationImage(
-              image: NetworkImage(ApiService.getImageUrl(fileUrl)),
+              image: isLocal ? FileImage(File(fileUrl)) : NetworkImage(ApiService.getImageUrl(fileUrl)) as ImageProvider,
               fit: BoxFit.cover,
             ),
           ),
