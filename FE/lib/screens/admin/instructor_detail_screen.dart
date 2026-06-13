@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme/rents_colors.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../utils/globals.dart';
 import 'edit_item_screen.dart';
 class InstructorDetailScreen extends StatefulWidget {
   final Map<String, dynamic> instructor;
@@ -149,51 +150,61 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
   @override
   Widget build(BuildContext context) {
     final String name = (_instructorData['name'] ?? 'Không tên').toString();
-    return Scaffold(
-      backgroundColor: RentsColors.bgLightBlue,
-      appBar: AppBar(
-        centerTitle: true,
-        title: Text(
-          name.toUpperCase(),
-          style: const TextStyle(
-            color: RentsColors.black,
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
+    
+    return ValueListenableBuilder<String>(
+      valueListenable: globalRole,
+      builder: (context, role, child) {
+        final isAdminOrStaff = role == 'admin' || role == 'staff';
+        
+        return Scaffold(
+          backgroundColor: RentsColors.bgLightBlue,
+          appBar: AppBar(
+            centerTitle: true,
+            title: Text(
+              name.toUpperCase(),
+              style: const TextStyle(
+                color: RentsColors.black,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+              ),
+            ),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: RentsColors.black),
+            actions: isAdminOrStaff ? [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, color: RentsColors.primaryBlue),
+                onPressed: _editInstructor,
+              ),
+            ] : null,
+            bottom: isAdminOrStaff ? TabBar(
+              controller: _tabController,
+              labelColor: RentsColors.primaryBlue,
+              unselectedLabelColor: RentsColors.grayDark,
+              indicatorColor: RentsColors.primaryBlue,
+              indicatorWeight: 3,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+              ),
+              tabs: const [
+                Tab(text: 'HỒ SƠ'),
+                Tab(text: 'LỊCH SỬ DẠY'),
+              ],
+            ) : null,
           ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: RentsColors.black),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, color: RentsColors.primaryBlue),
-            onPressed: _editInstructor,
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: RentsColors.primaryBlue,
-          unselectedLabelColor: RentsColors.grayDark,
-          indicatorColor: RentsColors.primaryBlue,
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 14,
-          ),
-          tabs: const [
-            Tab(text: 'HỒ SƠ'),
-            Tab(text: 'LỊCH SỬ DẠY'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [_buildProfileTab(), _buildHistoryTab()],
-      ),
+          body: isAdminOrStaff 
+            ? TabBarView(
+                controller: _tabController,
+                children: [_buildProfileTab(isAdminOrStaff), _buildHistoryTab()],
+              )
+            : _buildProfileTab(isAdminOrStaff),
+        );
+      },
     );
   }
 
-  Widget _buildProfileTab() {
+  Widget _buildProfileTab(bool isAdminOrStaff) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -241,7 +252,7 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
                   ),
                   const SizedBox(height: 6),
                   GestureDetector(
-                    onTap: _showStatusPicker,
+                    onTap: isAdminOrStaff ? _showStatusPicker : null,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
@@ -260,8 +271,8 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
                               letterSpacing: 0.5,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.edit_rounded, size: 12, color: _statusColor(_instructorData['status'])),
+                          if (isAdminOrStaff) const SizedBox(width: 4),
+                          if (isAdminOrStaff) Icon(Icons.edit_rounded, size: 12, color: _statusColor(_instructorData['status'])),
                         ],
                       ),
                     ),
@@ -298,7 +309,7 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
           ),
         ]),
         const SizedBox(height: 16),
-        _buildActiveClassesSection(),
+        if (isAdminOrStaff) _buildActiveClassesSection(),
       ],
     );
   }

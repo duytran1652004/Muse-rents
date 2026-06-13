@@ -161,17 +161,15 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
           appBar: _buildAppBar(isAdminOrStaff),
           body: Column(
             children: [
-              _buildSearchAndFilter(isAdminOrStaff ? isStudentTab : true),
+              _buildSearchAndFilter(isStudentTab), // Luôn hiển thị filter đúng tab
               Expanded(
-                child: isAdminOrStaff
-                    ? TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildStudentList(),
-                          _buildInstructorList(),
-                        ],
-                      )
-                    : _buildStudentList(), // Teacher chỉ xem Học viên
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildStudentList(),
+                    _buildInstructorList(),
+                  ],
+                ),
               ),
             ],
           ),
@@ -204,7 +202,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
           },
         ),
       ],
-      bottom: isAdminOrStaff ? TabBar(
+      bottom: TabBar(
         controller: _tabController,
         labelColor: RentsColors.primaryBlue,
         unselectedLabelColor: RentsColors.grayDark,
@@ -215,7 +213,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
           Tab(text: 'Học viên'),
           Tab(text: 'Giáo viên'),
         ],
-      ) : null,
+      ),
     );
   }
 
