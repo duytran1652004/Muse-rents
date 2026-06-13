@@ -330,7 +330,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                           const SizedBox(height: 16),
                           _sectionTitle('Nhận xét của bạn'),
                           const SizedBox(height: 10),
-                          if (completed > 0) ...[
+                          if (enrollment['status'] == 'active' || enrollment['status'] == 'completed') ...[
                             TextField(
                               controller: reviewController,
                               maxLines: 3,
@@ -381,8 +381,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                                   SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
-                                      'Bạn có thể viết nhận xét sau khi tham gia ít nhất 1 buổi học.',
-                                      style: TextStyle(fontSize: 13, color: RentsColors.grayDark),
+                                      'Tính năng nhận xét sẽ mở khi bạn chính thức bắt đầu hoặc đã hoàn thành khóa học này.',
+                                      style: TextStyle(fontSize: 13, color: RentsColors.grayDark, height: 1.4),
                                     ),
                                   ),
                                 ],
