@@ -10,5 +10,6 @@ router.put('/:id', auth, classController.updateClass);
 router.delete('/:id', auth, classController.deleteClass);
 router.get('/:id/messages', auth, classController.getClassMessages);
 router.post('/:id/messages', auth, classController.sendClassMessage);
+router.delete('/:id/messages/:msgId', auth, classController.deleteClassMessage);
 
 module.exports = router;

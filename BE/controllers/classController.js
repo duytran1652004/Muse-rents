@@ -384,6 +384,7 @@ exports.getClassMessages = async (req, res) => {
         m.class_id,
         m.sender_id,
         m.message,
+        m.is_deleted,
         m.created_at,
         u.full_name as sender_name,
         u.avatar_image as sender_avatar,
@@ -441,6 +442,58 @@ exports.sendClassMessage = async (req, res) => {
     res.status(201).json(newMessages[0]);
   } catch (err) {
     console.error('Error sending message:', err);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+exports.deleteClassMessage = async (req, res) => {
+  try {
+    const { id: classId, msgId } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // Kiểm tra quyền truy cập vào lớp
+    const hasAccess = await _canAccessClassMessages(userId, userRole, classId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Bạn không có quyền trong lớp này.' });
+    }
+
+    // Lấy thông tin tin nhắn
+    const [rows] = await db.query(
+      'SELECT id, sender_id, created_at, is_deleted FROM class_messages WHERE id = ? AND class_id = ?',
+      [msgId, classId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Tin nhắn không tồn tại.' });
+    }
+
+    const msg = rows[0];
+
+    // Chỉ người gửi mới được xóa (admin không xóa hộ)
+    if (msg.sender_id !== userId) {
+      return res.status(403).json({ message: 'Bạn chỉ có thể xóa tin nhắn của chính mình.' });
+    }
+
+    if (msg.is_deleted) {
+      return res.status(400).json({ message: 'Tin nhắn này đã bị xóa.' });
+    }
+
+    // Kiểm tra giới hạn 1 tiếng
+    const sentAt = new Date(msg.created_at);
+    const now = new Date();
+    const diffMs = now - sentAt;
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    if (diffHours > 1) {
+      return res.status(400).json({ message: 'Chỉ có thể xóa tin nhắn trong vòng 1 tiếng sau khi gửi.' });
+    }
+
+    // Đánh dấu đã xóa (soft delete)
+    await db.query('UPDATE class_messages SET is_deleted = 1 WHERE id = ?', [msgId]);
+
+    res.json({ message: 'Đã xóa tin nhắn.', id: parseInt(msgId) });
+  } catch (err) {
+    console.error('Error deleting message:', err);
     res.status(500).json({ message: 'Server Error' });
   }
 };

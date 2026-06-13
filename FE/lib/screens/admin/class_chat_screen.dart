@@ -34,6 +34,8 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
   String _myName = '';
   String _myAvatar = '';
   int _lastCount = 0;
+  // IDs tin nhắn đang ẩn cục bộ (chỉ trong phiên này)
+  final Set<int> _hiddenMessageIds = {};
 
   @override
   void initState() {
@@ -100,6 +102,158 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     } catch (e) {
       if (initial && mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// Ẩn tin nhắn cục bộ (chỉ trong phiên này)
+  void _hideMessage(int msgId) {
+    setState(() => _hiddenMessageIds.add(msgId));
+  }
+
+  /// Xóa tin nhắn (soft-delete trên server, chỉ trong 1 tiếng)
+  Future<void> _deleteMessage(dynamic message) async {
+    final msgId = message['id'];
+    final sentAt = DateTime.tryParse(message['created_at']?.toString() ?? '')?.toLocal();
+    if (sentAt == null) return;
+
+    final diffMinutes = DateTime.now().difference(sentAt).inMinutes;
+    if (diffMinutes > 60) {
+      _showError('Chỉ có thể xóa tin nhắn trong vòng 1 tiếng sau khi gửi.');
+      return;
+    }
+
+    // Confirm
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xóa tin nhắn', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Tin nhắn sẽ bị xóa với tất cả mọi người trong lớp. Bạn có chắc chắn?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa', style: TextStyle(color: RentsColors.accentRed, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    try {
+      final response = await ApiService.delete('/classes/${widget.classId}/messages/$msgId');
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        // Cập nhật tin nhắn trong danh sách
+        setState(() {
+          final idx = _messages.indexWhere((m) => m['id'] == msgId);
+          if (idx != -1) _messages[idx] = {..._messages[idx], 'is_deleted': 1};
+        });
+      } else {
+        final body = json.decode(response.body);
+        _showError(body['message'] ?? 'Không thể xóa tin nhắn.');
+      }
+    } catch (e) {
+      _showError('Lỗi kết nối mạng!');
+    }
+  }
+
+  /// Hiển thị bottom sheet tùy chọn khi nhấn giữ
+  void _showMessageOptions(dynamic message, bool isMe) {
+    final msgId = int.tryParse(message['id'].toString()) ?? -1;
+    if (msgId < 0 || message['_sending'] == true) return;
+
+    final isDeleted = message['is_deleted'] == 1 || message['is_deleted'] == true;
+    if (isDeleted) return; // không có tùy chọn cho tin đã xóa
+
+    // Kiểm tra còn trong 1 tiếng không
+    final sentAt = DateTime.tryParse(message['created_at']?.toString() ?? '')?.toLocal();
+    final canDelete = isMe && sentAt != null && DateTime.now().difference(sentAt).inMinutes <= 60;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 16),
+                decoration: BoxDecoration(color: RentsColors.grayMedium, borderRadius: BorderRadius.circular(2)),
+              ),
+              // Preview tin nhắn
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: RentsColors.bgGray,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    message['message']?.toString() ?? '',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: RentsColors.grayDark, fontSize: 13),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              // Nút Ẩn
+              ListTile(
+                leading: const Icon(Icons.visibility_off_outlined, color: RentsColors.grayDark),
+                title: const Text('Ẩn tin nhắn', style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text('Chỉ ẩn với bạn trong phiên này'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _hideMessage(msgId);
+                },
+              ),
+              if (isMe) ...[  
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: canDelete ? RentsColors.accentRed : RentsColors.grayMedium,
+                  ),
+                  title: Text(
+                    'Xóa tin nhắn',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: canDelete ? RentsColors.accentRed : RentsColors.grayMedium,
+                    ),
+                  ),
+                  subtitle: Text(
+                    canDelete
+                        ? 'Xóa với tất cả mọi người trong lớp'
+                        : 'Đã quá 1 tiếng, không thể xóa',
+                    style: TextStyle(
+                      color: canDelete ? RentsColors.grayDark : RentsColors.grayMedium,
+                      fontSize: 12,
+                    ),
+                  ),
+                  enabled: canDelete,
+                  onTap: canDelete ? () {
+                    Navigator.pop(ctx);
+                    _deleteMessage(message);
+                  } : null,
+                ),
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _sendMessage() async {
@@ -328,134 +482,151 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
   }
 
   Widget _buildMessageBubble(dynamic message, bool isMe, bool showAvatar, bool showName) {
+    final isDeleted = message['is_deleted'] == 1 || message['is_deleted'] == true;
     final senderName = message['sender_name'] ?? 'Người dùng';
     final avatarUrl = message['sender_avatar'];
     final senderRole = message['sender_role'];
     final isSending = message['_sending'] == true;
     final timeStr = _formatTime(message['created_at']);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: isMe ? 60 : 16,
-        right: isMe ? 16 : 60,
-        top: showName ? 8 : 2,
-        bottom: 2,
-      ),
-      child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // Avatar (người khác)
-          if (!isMe) ...[
-            showAvatar
-                ? _buildAvatar(avatarUrl, senderName)
-                : const SizedBox(width: 34),
-            const SizedBox(width: 8),
-          ],
-
-          Flexible(
-            child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                // Tên + badge vai trò (chỉ khi thay đổi người gửi)
-                if (showName) ...[
-                  if (isMe)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        _buildRoleBadge(senderRole),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Bạn',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: RentsColors.grayDark,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    Row(
-                      children: [
-                        Text(
-                          senderName,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: RentsColors.grayDark,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        _buildRoleBadge(senderRole),
-                      ],
-                    ),
-                  const SizedBox(height: 4),
-                ],
-
-                // Bubble
-                Row(
-                  mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Spinner gửi (bên trái bubble của mình)
-                    if (isSending && isMe)
-                      const Padding(
-                        padding: EdgeInsets.only(right: 6, bottom: 4),
-                        child: SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 1.5, color: RentsColors.grayMedium),
-                        ),
-                      ),
-
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isMe ? RentsColors.primaryBlue : Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(18),
-                            topRight: const Radius.circular(18),
-                            bottomLeft: Radius.circular(isMe ? 18 : 4),
-                            bottomRight: Radius.circular(isMe ? 4 : 18),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          message['message'] ?? '',
-                          style: TextStyle(
-                            color: isMe ? Colors.white : RentsColors.black,
-                            fontSize: 15,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Thời gian gửi
-                if (!isSending)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 3, left: 2, right: 2),
-                    child: Text(
-                      timeStr,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: RentsColors.grayMedium,
-                      ),
-                    ),
+    // Hiển thị tin nhắn đã xóa
+    if (isDeleted) {
+      return Padding(
+        padding: EdgeInsets.only(
+          left: isMe ? 60 : 16,
+          right: isMe ? 16 : 60,
+          top: 2, bottom: 2,
+        ),
+        child: Row(
+          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (!isMe) const SizedBox(width: 42),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F2F5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: RentsColors.grayLight),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.not_interested, size: 14, color: RentsColors.grayDark),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Tin nhắn đã bị xóa',
+                    style: TextStyle(color: RentsColors.grayDark, fontSize: 13, fontStyle: FontStyle.italic),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onLongPress: () => _showMessageOptions(message, isMe),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: isMe ? 60 : 16,
+          right: isMe ? 16 : 60,
+          top: showName ? 8 : 2,
+          bottom: 2,
+        ),
+        child: Row(
+          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Avatar (người khác)
+            if (!isMe) ...[
+              showAvatar
+                  ? _buildAvatar(avatarUrl, senderName)
+                  : const SizedBox(width: 34),
+              const SizedBox(width: 8),
+            ],
+
+            Flexible(
+              child: Column(
+                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  // Tên + badge vai trò
+                  if (showName) ...[
+                    if (isMe)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          _buildRoleBadge(senderRole),
+                          const SizedBox(width: 4),
+                          const Text('Bạn', style: TextStyle(fontSize: 11, color: RentsColors.grayDark, fontWeight: FontWeight.w600)),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Text(senderName, style: const TextStyle(fontSize: 11, color: RentsColors.grayDark, fontWeight: FontWeight.w600)),
+                          _buildRoleBadge(senderRole),
+                        ],
+                      ),
+                    const SizedBox(height: 4),
+                  ],
+
+                  // Bubble
+                  Row(
+                    mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (isSending && isMe)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 6, bottom: 4),
+                          child: SizedBox(
+                            width: 12, height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: RentsColors.grayMedium),
+                          ),
+                        ),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isMe ? RentsColors.primaryBlue : Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(18),
+                              topRight: const Radius.circular(18),
+                              bottomLeft: Radius.circular(isMe ? 18 : 4),
+                              bottomRight: Radius.circular(isMe ? 4 : 18),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            message['message'] ?? '',
+                            style: TextStyle(
+                              color: isMe ? Colors.white : RentsColors.black,
+                              fontSize: 15,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Thời gian gửi
+                  if (!isSending)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3, left: 2, right: 2),
+                      child: Text(timeStr, style: const TextStyle(fontSize: 10, color: RentsColors.grayMedium)),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -597,6 +768,13 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                             itemCount: _messages.length,
                             itemBuilder: (context, index) {
                               final msg = _messages[index];
+                              final msgId = int.tryParse(msg['id'].toString()) ?? -1;
+
+                              // Bỏ qua tin nhắn đang ẩn cục bộ
+                              if (_hiddenMessageIds.contains(msgId)) {
+                                return const SizedBox.shrink();
+                              }
+
                               final senderId = int.tryParse(msg['sender_id'].toString()) ?? -1;
                               final isMe = senderId == _myUserId;
 

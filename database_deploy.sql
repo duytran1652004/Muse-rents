@@ -254,6 +254,7 @@ CREATE TABLE IF NOT EXISTS `class_messages` (
   `class_id` int(11) NOT NULL,
   `sender_id` int(11) NOT NULL,
   `message` text NOT NULL,
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   KEY `class_id` (`class_id`),
   KEY `sender_id` (`sender_id`),
