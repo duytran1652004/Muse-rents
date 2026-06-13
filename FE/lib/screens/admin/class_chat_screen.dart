@@ -365,6 +365,23 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                   _hideMessage(msgId);
                 },
               ),
+              if (message['file_url'] != null && message['file_url'].toString().isNotEmpty) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.download_rounded, color: RentsColors.primaryBlue),
+                  title: const Text('Lưu tệp đính kèm', style: TextStyle(fontWeight: FontWeight.w500, color: RentsColors.primaryBlue)),
+                  subtitle: Text(message['file_name'] ?? 'Tải tệp này xuống', style: const TextStyle(fontSize: 12, color: RentsColors.grayDark)),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final url = Uri.parse(ApiService.getImageUrl(message['file_url']));
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    } else {
+                      _showError('Không thể mở liên kết để tải xuống.');
+                    }
+                  },
+                ),
+              ],
               if (isMe) ...[  
                 const Divider(height: 1),
                 ListTile(
