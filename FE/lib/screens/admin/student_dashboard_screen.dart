@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_button.dart';
+import 'class_chat_screen.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({super.key});
@@ -72,6 +73,16 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     return 'Đã hủy';
   }
 
+  final Map<String, String> _dayMap = {
+    'Monday': 'Thứ Hai',
+    'Tuesday': 'Thứ Ba',
+    'Wednesday': 'Thứ Tư',
+    'Thursday': 'Thứ Năm',
+    'Friday': 'Thứ Sáu',
+    'Saturday': 'Thứ Bảy',
+    'Sunday': 'Chủ Nhật',
+  };
+
   String _buildScheduleStr(Map<String, dynamic> e) {
     final List<String> parts = [];
     for (int i = 1; i <= 3; i++) {
@@ -79,9 +90,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       final start = i == 1 ? e['start_time'] : i == 2 ? e['start_time_2'] : e['start_time_3'];
       final end = i == 1 ? e['end_time'] : i == 2 ? e['end_time_2'] : e['end_time_3'];
       if (day != null && start != null && end != null) {
+        final vnDay = _dayMap[day] ?? day;
         final s = start.toString().length >= 5 ? start.toString().substring(0, 5) : start.toString();
         final en = end.toString().length >= 5 ? end.toString().substring(0, 5) : end.toString();
-        parts.add('$day  $s–$en');
+        parts.add('$vnDay  $s–$en');
       }
     }
     return parts.isEmpty ? 'Chưa có lịch' : parts.join('\n');
@@ -224,6 +236,32 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                             ],
                           ),
                         ),
+                        if (enrollment['class_id'] != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: RentsColors.primaryBlue.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ClassChatScreen(
+                                      classId: int.parse(enrollment['class_id'].toString()),
+                                      className: courseName,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.chat_bubble_rounded),
+                              color: RentsColors.primaryBlue,
+                              tooltip: 'Tin nhắn lớp',
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
