@@ -262,6 +262,17 @@ CREATE TABLE IF NOT EXISTS `class_messages` (
   CONSTRAINT `class_messages_ibfk_2` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE IF NOT EXISTS `class_message_reactions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `message_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `reaction` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  UNIQUE KEY `unique_reaction` (`message_id`, `user_id`),
+  CONSTRAINT `fk_msg_reaction` FOREIGN KEY (`message_id`) REFERENCES `class_messages` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_user_reaction` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 COMMIT;
 

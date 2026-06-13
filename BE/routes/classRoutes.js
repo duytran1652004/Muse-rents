@@ -11,6 +11,6 @@ router.delete('/:id', auth, classController.deleteClass);
 router.get('/:id/messages', auth, classController.getClassMessages);
 router.post('/:id/messages', auth, classController.sendClassMessage);
 router.delete('/:id/messages/:msgId', auth, classController.deleteClassMessage);
-router.post('/:id/messages/:msgId/reactions', auth, classController.toggleMessageReaction);
+router.post('/:id/messages/:msgId/react', auth, classController.reactClassMessage);
 
 module.exports = router;
