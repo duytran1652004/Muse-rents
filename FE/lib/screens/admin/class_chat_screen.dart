@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../theme/rents_colors.dart';
@@ -1110,31 +1111,59 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                             ),
                             child: Row(
                               children: [
-                                IconButton(
-                                  icon: const Icon(Icons.attach_file, color: RentsColors.grayDark),
-                                  onPressed: () async {
-                                    try {
-                                      FilePickerResult? result = await FilePicker.pickFiles(
-                                        type: FileType.custom,
-                                        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'],
-                                      );
-                                      if (result != null && result.files.single.path != null) {
-                                        setState(() {
-                                          _selectedFile = File(result.files.single.path!);
-                                          _selectedFileName = result.files.single.name;
-                                          final ext = result.files.single.extension?.toLowerCase();
-                                          if (['jpg', 'jpeg', 'png'].contains(ext)) _selectedFileType = 'image';
-                                          else if (ext == 'pdf') _selectedFileType = 'pdf';
-                                          else if (['doc', 'docx'].contains(ext)) _selectedFileType = 'word';
-                                          else if (['xls', 'xlsx'].contains(ext)) _selectedFileType = 'excel';
-                                          else if (['ppt', 'pptx'].contains(ext)) _selectedFileType = 'ppt';
-                                          else _selectedFileType = 'file';
-                                        });
-                                      }
-                                    } catch (_) {
-                                      _showError('Không thể chọn file');
-                                    }
-                                  },
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.add_circle_outline, color: RentsColors.grayDark, size: 22),
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.only(left: 14, right: 8),
+                                      onPressed: () async {
+                                        try {
+                                          FilePickerResult? result = await FilePicker.pickFiles(type: FileType.any);
+                                          if (result != null && result.files.single.path != null) {
+                                            final ext = result.files.single.extension?.toLowerCase() ?? '';
+                                            final allowedFileExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
+                                            if (allowedFileExts.contains(ext)) {
+                                              setState(() {
+                                                _selectedFile = File(result.files.single.path!);
+                                                _selectedFileName = result.files.single.name;
+                                                if (ext == 'pdf') _selectedFileType = 'pdf';
+                                                else if (['doc', 'docx'].contains(ext)) _selectedFileType = 'word';
+                                                else if (['xls', 'xlsx'].contains(ext)) _selectedFileType = 'excel';
+                                                else if (['ppt', 'pptx'].contains(ext)) _selectedFileType = 'ppt';
+                                                else _selectedFileType = 'file';
+                                              });
+                                            } else {
+                                              _showError('Chỉ hỗ trợ file PDF, Word, Excel, PPT và TXT.');
+                                            }
+                                          }
+                                        } catch (e) {
+                                          _showError('Không thể chọn file: $e');
+                                        }
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.image_outlined, color: RentsColors.grayDark, size: 22),
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.only(left: 4, right: 8),
+                                      onPressed: () async {
+                                        try {
+                                          final ImagePicker picker = ImagePicker();
+                                          final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                                          if (image != null) {
+                                            setState(() {
+                                              _selectedFile = File(image.path);
+                                              _selectedFileName = image.name;
+                                              _selectedFileType = 'image';
+                                            });
+                                          }
+                                        } catch (e) {
+                                          _showError('Không thể chọn ảnh: $e');
+                                        }
+                                      },
+                                    ),
+                                  ],
                                 ),
                                 Expanded(
                                   child: TextField(
