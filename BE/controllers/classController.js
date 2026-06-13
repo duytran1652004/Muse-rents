@@ -481,7 +481,26 @@ exports.sendClassMessage = async (req, res) => {
       WHERE m.id = ?
     `, [result.insertId]);
 
-    res.status(201).json(newMessages[0]);
+    const msgData = newMessages[0];
+
+    // Gửi thông báo
+    let notifMsg = '';
+    if (msgData.message) notifMsg = msgData.message;
+    else if (msgData.file_type === 'image') notifMsg = '[Hình ảnh]';
+    else if (msgData.file_url) notifMsg = '[Tệp đính kèm]';
+
+    const fullNotifMessage = `Tin nhắn mới từ ${msgData.sender_name}: ${notifMsg}`;
+
+    // Xóa thông báo tin nhắn cũ của lớp này để tránh spam
+    await db.query("DELETE FROM notifications WHERE type = 'class' AND related_id = ? AND message LIKE 'Tin nhắn mới từ %'", [classId]);
+
+    // Thêm thông báo mới
+    await db.query(
+      "INSERT INTO notifications (user_id, type, related_id, title, message) VALUES (NULL, 'class', ?, 'Tin nhắn mới', ?)",
+      [classId, fullNotifMessage]
+    );
+
+    res.status(201).json(msgData);
   } catch (err) {
     console.error('Error sending message:', err);
     res.status(500).json({ message: 'Server Error' });
