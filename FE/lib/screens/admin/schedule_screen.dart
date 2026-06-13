@@ -2179,25 +2179,26 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                     ),
                     const SizedBox(width: 12),
                   ],
-                  Expanded(
-                    child: _buildActionButton(
-                      'Nhắn tin',
-                      RentsColors.primaryBlue,
-                      Colors.white,
-                      () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ClassChatScreen(
-                              classId: cls['id'],
-                              className: cls['class_name'] ?? 'Lớp học',
+                  if (cls['status'] == 'active')
+                    Expanded(
+                      child: _buildActionButton(
+                        'Nhắn tin',
+                        RentsColors.primaryBlue,
+                        Colors.white,
+                        () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ClassChatScreen(
+                                classId: cls['id'],
+                                className: cls['class_name'] ?? 'Lớp học',
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 12),

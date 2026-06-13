@@ -236,7 +236,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                             ],
                           ),
                         ),
-                        if (enrollment['class_id'] != null) ...[
+                        if (enrollment['class_id'] != null && enrollment['status'] == 'active') ...[
                           const SizedBox(width: 8),
                           Container(
                             decoration: BoxDecoration(
