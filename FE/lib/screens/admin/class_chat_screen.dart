@@ -919,18 +919,55 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     );
   }
 
+  void _showImageFullScreen(String url, bool isLocal) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Center(
+                child: isLocal
+                    ? Image.file(File(url), fit: BoxFit.contain)
+                    : Image.network(ApiService.getImageUrl(url), fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFileAttachment(dynamic message, bool isMe) {
     final fileUrl = message['file_url'];
     final fileName = message['file_name'] ?? 'Tập tin đính kèm';
     final fileType = message['file_type'] ?? 'file';
     final isLocal = message['is_local_file'] == true;
 
-    if (fileType == 'image' && fileUrl != null) {
+    bool isImage = fileType == 'image';
+    if (!isImage && fileUrl != null) {
+      final ext = fileUrl.toString().toLowerCase();
+      if (ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png') || ext.endsWith('.gif') || ext.endsWith('.webp')) {
+        isImage = true;
+      }
+    }
+
+    if (isImage && fileUrl != null) {
       return GestureDetector(
-        onTap: isLocal ? null : () async {
-          final url = Uri.parse(ApiService.getImageUrl(fileUrl));
-          if (await canLaunchUrl(url)) await launchUrl(url);
-        },
+        onTap: () => _showImageFullScreen(fileUrl, isLocal),
         child: Container(
           margin: EdgeInsets.only(bottom: (message['message']?.toString() ?? '').isNotEmpty ? 8 : 0),
           constraints: const BoxConstraints(maxHeight: 200),
