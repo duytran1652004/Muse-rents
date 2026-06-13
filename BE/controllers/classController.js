@@ -388,12 +388,26 @@ exports.getClassMessages = async (req, res) => {
         m.created_at,
         u.full_name as sender_name,
         u.avatar_image as sender_avatar,
-        u.role as sender_role
+        u.role as sender_role,
+        (
+          SELECT IFNULL(
+            CONCAT('[', GROUP_CONCAT(
+              JSON_OBJECT('emoji', t.emoji, 'count', t.cnt, 'mine', IF(t.mine > 0, 1, 0))
+            ), ']'),
+            '[]'
+          )
+          FROM (
+            SELECT emoji, COUNT(*) as cnt, MAX(IF(user_id = ?, 1, 0)) as mine
+            FROM class_message_reactions
+            WHERE message_id = m.id
+            GROUP BY emoji
+          ) t
+        ) as reactions
       FROM class_messages m
       JOIN users u ON m.sender_id = u.id
       WHERE m.class_id = ?
       ORDER BY m.created_at ASC
-    `, [classId]);
+    `, [userId, classId]);
 
     res.json(messages);
   } catch (err) {
@@ -494,6 +508,78 @@ exports.deleteClassMessage = async (req, res) => {
     res.json({ message: 'Đã xóa tin nhắn.', id: parseInt(msgId) });
   } catch (err) {
     console.error('Error deleting message:', err);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+exports.toggleMessageReaction = async (req, res) => {
+  try {
+    const { id: classId, msgId } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const { emoji } = req.body;
+
+    const ALLOWED_EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍', '👎'];
+    if (!emoji || !ALLOWED_EMOJIS.includes(emoji)) {
+      return res.status(400).json({ message: 'Emoji không hợp lệ.' });
+    }
+
+    // Kiểm tra quyền
+    const hasAccess = await _canAccessClassMessages(userId, userRole, classId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Bạn không có quyền trong lớp này.' });
+    }
+
+    // Kiểm tra tin nhắn tồn tại
+    const [msgRows] = await db.query(
+      'SELECT id, is_deleted FROM class_messages WHERE id = ? AND class_id = ?',
+      [msgId, classId]
+    );
+    if (msgRows.length === 0) {
+      return res.status(404).json({ message: 'Tin nhắn không tồn tại.' });
+    }
+    if (msgRows[0].is_deleted) {
+      return res.status(400).json({ message: 'Không thể react tin nhắn đã xóa.' });
+    }
+
+    // Lấy reaction hiện tại của user cho tin nhắn này
+    const [existing] = await db.query(
+      'SELECT id, emoji FROM class_message_reactions WHERE message_id = ? AND user_id = ?',
+      [msgId, userId]
+    );
+
+    let action;
+    if (existing.length === 0) {
+      // Chưa react → thêm mới
+      await db.query(
+        'INSERT INTO class_message_reactions (message_id, user_id, emoji) VALUES (?, ?, ?)',
+        [msgId, userId, emoji]
+      );
+      action = 'added';
+    } else if (existing[0].emoji === emoji) {
+      // Đã react cùng emoji → bỏ (toggle off)
+      await db.query('DELETE FROM class_message_reactions WHERE id = ?', [existing[0].id]);
+      action = 'removed';
+    } else {
+      // Đã react emoji khác → đổi sang emoji mới
+      await db.query(
+        'UPDATE class_message_reactions SET emoji = ? WHERE id = ?',
+        [emoji, existing[0].id]
+      );
+      action = 'changed';
+    }
+
+    // Trả về danh sách reactions mới nhất cho tin nhắn này
+    const [reactions] = await db.query(`
+      SELECT emoji, COUNT(*) as count, MAX(IF(user_id = ?, 1, 0)) as mine
+      FROM class_message_reactions
+      WHERE message_id = ?
+      GROUP BY emoji
+    `, [userId, msgId]);
+
+    res.json({ action, message_id: parseInt(msgId), reactions });
+  } catch (err) {
+    console.error('Error toggling reaction:', err);
     res.status(500).json({ message: 'Server Error' });
   }
 };

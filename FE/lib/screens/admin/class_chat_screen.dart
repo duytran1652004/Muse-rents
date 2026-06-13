@@ -109,6 +109,52 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     setState(() => _hiddenMessageIds.add(msgId));
   }
 
+  // Danh sách emoji được phép react
+  static const List<String> _emojis = ['❤️', '😂', '😮', '😢', '😡', '👍', '👎'];
+
+  /// Toggle emoji reaction — thêm/đổi/bỏ reaction trên server
+  Future<void> _toggleReaction(dynamic message, String emoji) async {
+    final msgId = message['id'];
+    try {
+      final response = await ApiService.post(
+        '/classes/${widget.classId}/messages/$msgId/reactions',
+        {'emoji': emoji},
+      );
+      if (response.statusCode == 200 && mounted) {
+        final data = json.decode(response.body);
+        final List<dynamic> newReactions = data['reactions'] ?? [];
+        setState(() {
+          final idx = _messages.indexWhere((m) => m['id'] == msgId);
+          if (idx != -1) {
+            _messages[idx] = {..._messages[idx], 'reactions': newReactions};
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// Parse reactions từ JSON string hoặc List
+  List<Map<String, dynamic>> _parseReactions(dynamic raw) {
+    if (raw == null) return [];
+    try {
+      List<dynamic> list;
+      if (raw is String) {
+        list = json.decode(raw) as List<dynamic>;
+      } else if (raw is List) {
+        list = raw;
+      } else {
+        return [];
+      }
+      return list.map((r) => {
+        'emoji': r['emoji']?.toString() ?? '',
+        'count': int.tryParse(r['count'].toString()) ?? 0,
+        'mine': r['mine'] == 1 || r['mine'] == true,
+      }).where((r) => (r['emoji'] as String).isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Xóa tin nhắn (soft-delete trên server, chỉ trong 1 tiếng)
   Future<void> _deleteMessage(dynamic message) async {
     final msgId = message['id'];
@@ -163,11 +209,12 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     if (msgId < 0 || message['_sending'] == true) return;
 
     final isDeleted = message['is_deleted'] == 1 || message['is_deleted'] == true;
-    if (isDeleted) return; // không có tùy chọn cho tin đã xóa
+    if (isDeleted) return;
 
-    // Kiểm tra còn trong 1 tiếng không
     final sentAt = DateTime.tryParse(message['created_at']?.toString() ?? '')?.toLocal();
     final canDelete = isMe && sentAt != null && DateTime.now().difference(sentAt).inMinutes <= 60;
+    final myReactions = _parseReactions(message['reactions']);
+    final myCurrentEmoji = myReactions.where((r) => r['mine'] == true).map((r) => r['emoji'] as String).firstOrNull;
 
     showModalBottomSheet(
       context: context,
@@ -185,10 +232,51 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
             children: [
               Container(
                 width: 36, height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 16),
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
                 decoration: BoxDecoration(color: RentsColors.grayMedium, borderRadius: BorderRadius.circular(2)),
               ),
-              // Preview tin nhắn
+
+              // ── Emoji picker ────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F2F5),
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _emojis.map((e) {
+                      final isSelected = myCurrentEmoji == e;
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _toggleReaction(message, e);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? RentsColors.primaryBlue.withValues(alpha: 0.15)
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            e,
+                            style: TextStyle(
+                              fontSize: isSelected ? 28 : 24,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+
+              // ── Preview tin nhắn ────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
@@ -206,9 +294,10 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               const Divider(height: 1),
-              // Nút Ẩn
+
+              // ── Nút Ẩn ─────────────────────────────────────────────────
               ListTile(
                 leading: const Icon(Icons.visibility_off_outlined, color: RentsColors.grayDark),
                 title: const Text('Ẩn tin nhắn', style: TextStyle(fontWeight: FontWeight.w500)),
@@ -218,7 +307,7 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                   _hideMessage(msgId);
                 },
               ),
-              if (isMe) ...[  
+              if (isMe) ...[
                 const Divider(height: 1),
                 ListTile(
                   leading: Icon(
@@ -233,9 +322,7 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                     ),
                   ),
                   subtitle: Text(
-                    canDelete
-                        ? 'Xóa với tất cả mọi người trong lớp'
-                        : 'Đã quá 1 tiếng, không thể xóa',
+                    canDelete ? 'Xóa với tất cả mọi người trong lớp' : 'Đã quá 1 tiếng, không thể xóa',
                     style: TextStyle(
                       color: canDelete ? RentsColors.grayDark : RentsColors.grayMedium,
                       fontSize: 12,
@@ -488,6 +575,7 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     final senderRole = message['sender_role'];
     final isSending = message['_sending'] == true;
     final timeStr = _formatTime(message['created_at']);
+    final reactions = _parseReactions(message['reactions']);
 
     // Hiển thị tin nhắn đã xóa
     if (isDeleted) {
@@ -621,6 +709,53 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 3, left: 2, right: 2),
                       child: Text(timeStr, style: const TextStyle(fontSize: 10, color: RentsColors.grayMedium)),
+                    ),
+
+                  // Reaction bar
+                  if (reactions.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Wrap(
+                        spacing: 4,
+                        children: reactions.map((r) {
+                          final isMine = r['mine'] == true;
+                          final count = r['count'] as int;
+                          return GestureDetector(
+                            onTap: () => _toggleReaction(message, r['emoji'] as String),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isMine
+                                    ? RentsColors.primaryBlue.withValues(alpha: 0.15)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isMine ? RentsColors.primaryBlue : RentsColors.grayLight,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(r['emoji'] as String, style: const TextStyle(fontSize: 13)),
+                                  if (count > 1) ...[
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '$count',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: isMine ? RentsColors.primaryBlue : RentsColors.grayDark,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
                 ],
               ),
