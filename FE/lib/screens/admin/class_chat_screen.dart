@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
@@ -45,6 +44,8 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
   String? _selectedFileName;
   String? _selectedFileType;
 
+  String? _courseImageUrl;
+
   @override
   void initState() {
     super.initState();
@@ -53,12 +54,27 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
   }
 
   Future<void> _init() async {
-    await _fetchMyProfile();
+    await Future.wait([
+      _fetchMyProfile(),
+      _fetchClassInfo(),
+    ]);
     await _fetchMessages(initial: true);
     // Poll mỗi 3 giây để nhận tin nhắn mới
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!_accessDenied) _fetchMessages();
     });
+  }
+
+  Future<void> _fetchClassInfo() async {
+    try {
+      final res = await ApiService.get('/classes/${widget.classId}');
+      if (res.statusCode == 200 && mounted) {
+        final data = json.decode(res.body);
+        setState(() {
+          _courseImageUrl = data['course_image_url'];
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -365,23 +381,7 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                   _hideMessage(msgId);
                 },
               ),
-              if (message['file_url'] != null && message['file_url'].toString().isNotEmpty) ...[
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.download_rounded, color: RentsColors.primaryBlue),
-                  title: const Text('Lưu tệp đính kèm', style: TextStyle(fontWeight: FontWeight.w500, color: RentsColors.primaryBlue)),
-                  subtitle: Text(message['file_name'] ?? 'Tải tệp này xuống', style: const TextStyle(fontSize: 12, color: RentsColors.grayDark)),
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    final url = Uri.parse(ApiService.getImageUrl(message['file_url']));
-                    if (await canLaunchUrl(url)) {
-                      await launchUrl(url, mode: LaunchMode.externalApplication);
-                    } else {
-                      _showError('Không thể mở liên kết để tải xuống.');
-                    }
-                  },
-                ),
-              ],
+
               if (isMe) ...[  
                 const Divider(height: 1),
                 ListTile(
@@ -526,7 +526,7 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
       Future.delayed(const Duration(milliseconds: 120), () {
         if (_scrollCtrl.hasClients) {
           _scrollCtrl.animateTo(
-            _scrollCtrl.position.maxScrollExtent,
+            0.0,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOut,
           );
@@ -981,6 +981,15 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     return isImage;
   }
 
+  Widget _buildErrorImage() {
+    return Container(
+      color: RentsColors.grayMedium.withValues(alpha: 0.2),
+      child: const Center(
+        child: Icon(Icons.broken_image_rounded, color: RentsColors.grayDark, size: 32),
+      ),
+    );
+  }
+
   Widget _buildFileAttachment(dynamic message, bool isMe) {
     final fileUrl = message['file_url'];
     final fileName = message['file_name'] ?? 'Tập tin đính kèm';
@@ -994,14 +1003,28 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
         onTap: () => _showImageFullScreen(fileUrl, isLocal),
         child: Container(
           margin: EdgeInsets.only(bottom: (message['message']?.toString() ?? '').isNotEmpty ? 8 : 0),
-          constraints: const BoxConstraints(maxHeight: 200),
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: isLocal ? FileImage(File(fileUrl)) : NetworkImage(ApiService.getImageUrl(fileUrl)) as ImageProvider,
-              fit: BoxFit.cover,
-            ),
-          ),
-          child: AspectRatio(aspectRatio: 16/9, child: Container()),
+          constraints: const BoxConstraints(maxHeight: 250),
+          width: double.infinity,
+          child: isLocal
+              ? Image.file(
+                  File(fileUrl),
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, stack) => _buildErrorImage(),
+                )
+              : Image.network(
+                  ApiService.getImageUrl(fileUrl),
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, stack) => _buildErrorImage(),
+                  loadingBuilder: (ctx, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(color: RentsColors.primaryBlue),
+                      ),
+                    );
+                  },
+                ),
         ),
       );
     }
@@ -1140,7 +1163,15 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                 color: RentsColors.primaryBlue.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.groups_rounded, color: RentsColors.primaryBlue, size: 22),
+              child: _courseImageUrl != null
+                  ? ClipOval(
+                      child: Image.network(
+                        ApiService.getImageUrl(_courseImageUrl!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.groups_rounded, color: RentsColors.primaryBlue, size: 22),
+                      ),
+                    )
+                  : const Icon(Icons.groups_rounded, color: RentsColors.primaryBlue, size: 22),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1187,10 +1218,12 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                         ? _buildEmptyState()
                         : ListView.builder(
                             controller: _scrollCtrl,
+                            reverse: true,
                             padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
                             itemCount: _messages.length,
                             itemBuilder: (context, index) {
-                              final msg = _messages[index];
+                              final reverseIndex = _messages.length - 1 - index;
+                              final msg = _messages[reverseIndex];
                               final msgId = int.tryParse(msg['id'].toString()) ?? -1;
 
                               // Bỏ qua tin nhắn đang ẩn cục bộ
@@ -1201,21 +1234,21 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                               final senderId = int.tryParse(msg['sender_id'].toString()) ?? -1;
                               final isMe = senderId == _myUserId;
 
-                              // Hiện tên khi thay đổi người gửi
-                              final prevSenderId = index > 0
-                                  ? int.tryParse(_messages[index - 1]['sender_id'].toString())
+                              // Hiện tên khi thay đổi người gửi (cũ hơn = reverseIndex - 1)
+                              final prevSenderId = reverseIndex > 0
+                                  ? int.tryParse(_messages[reverseIndex - 1]['sender_id'].toString())
                                   : null;
                               final showName = prevSenderId != senderId;
 
-                              // Hiện avatar cho tin nhắn cuối cùng của nhóm
-                              final nextSenderId = index < _messages.length - 1
-                                  ? int.tryParse(_messages[index + 1]['sender_id'].toString())
+                              // Hiện avatar cho tin nhắn cuối cùng của nhóm (mới hơn = reverseIndex + 1)
+                              final nextSenderId = reverseIndex < _messages.length - 1
+                                  ? int.tryParse(_messages[reverseIndex + 1]['sender_id'].toString())
                                   : null;
                               final showAvatar = !isMe && nextSenderId != senderId;
 
                               return Column(
                                 children: [
-                                  if (_shouldShowTimeDivider(index))
+                                  if (_shouldShowTimeDivider(reverseIndex))
                                     _buildTimeDivider(msg['created_at']),
                                   _buildMessageBubble(msg, isMe, showAvatar, showName),
                                 ],
@@ -1292,38 +1325,9 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     IconButton(
-                                      icon: const Icon(Icons.add_circle_outline, color: RentsColors.grayDark, size: 22),
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.only(left: 14, right: 8),
-                                      onPressed: () async {
-                                        try {
-                                          FilePickerResult? result = await FilePicker.pickFiles(type: FileType.any);
-                                          if (result != null && result.files.single.path != null) {
-                                            final ext = result.files.single.extension?.toLowerCase() ?? '';
-                                            final allowedFileExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
-                                            if (allowedFileExts.contains(ext)) {
-                                              setState(() {
-                                                _selectedFile = File(result.files.single.path!);
-                                                _selectedFileName = result.files.single.name;
-                                                if (ext == 'pdf') _selectedFileType = 'pdf';
-                                                else if (['doc', 'docx'].contains(ext)) _selectedFileType = 'word';
-                                                else if (['xls', 'xlsx'].contains(ext)) _selectedFileType = 'excel';
-                                                else if (['ppt', 'pptx'].contains(ext)) _selectedFileType = 'ppt';
-                                                else _selectedFileType = 'file';
-                                              });
-                                            } else {
-                                              _showError('Chỉ hỗ trợ file PDF, Word, Excel, PPT và TXT.');
-                                            }
-                                          }
-                                        } catch (e) {
-                                          _showError('Không thể chọn file: $e');
-                                        }
-                                      },
-                                    ),
-                                    IconButton(
                                       icon: const Icon(Icons.image_outlined, color: RentsColors.grayDark, size: 22),
                                       constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.only(left: 4, right: 8),
+                                      padding: const EdgeInsets.only(left: 14, right: 8),
                                       onPressed: () async {
                                         try {
                                           final ImagePicker picker = ImagePicker();
