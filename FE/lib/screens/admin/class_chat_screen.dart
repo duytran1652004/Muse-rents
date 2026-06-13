@@ -92,13 +92,31 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
 
       if (response.statusCode == 200) {
         final List<dynamic> msgs = json.decode(response.body);
-        final bool hasNew = msgs.length != _lastCount;
+        final bool hasNew = msgs.length > _lastCount;
+        final int prevCount = _lastCount;
+        
         setState(() {
           _messages = msgs;
           _lastCount = msgs.length;
           if (initial) _isLoading = false;
         });
-        if (initial || hasNew) _scrollToBottom();
+        
+        if (hasNew && !initial) {
+          // Show notification for new messages from others
+          for (int i = prevCount; i < msgs.length; i++) {
+            final msg = msgs[i];
+            if (msg['sender_id'] != _myUserId) {
+              final name = msg['sender_name'] ?? 'Người dùng';
+              final content = msg['message']?.toString().isNotEmpty == true 
+                  ? msg['message'] 
+                  : '[Đã gửi một tệp đính kèm]';
+              _showSimpleNotification('$name: $content');
+            }
+          }
+          _scrollToBottom();
+        } else if (initial) {
+          _scrollToBottom();
+        }
       } else if (response.statusCode == 403) {
         setState(() {
           _accessDenied = true;
@@ -110,6 +128,59 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     } catch (e) {
       if (initial && mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showSimpleNotification(String text) {
+    if (!mounted) return;
+    OverlayEntry? entry;
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).padding.top + 10,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: -50.0, end: 0.0),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(0, value),
+                child: child,
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: RentsColors.primaryBlue.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      text,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(entry);
+    Future.delayed(const Duration(seconds: 3), () {
+      entry?.remove();
+    });
   }
 
   /// Ẩn tin nhắn cục bộ (chỉ trong phiên này)
