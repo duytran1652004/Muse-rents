@@ -11,6 +11,7 @@ import '../../widgets/notification_button.dart';
 import 'create_booking_screen.dart';
 import 'notifications_screen.dart';
 import 'edit_class_screen.dart';
+import 'class_chat_screen.dart';
 import 'package:intl/intl.dart';
 
 class CurrencyInputFormatter extends TextInputFormatter {
@@ -2162,30 +2163,39 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
               ),
               const SizedBox(height: 24),
               // Action Buttons
-              if (!isStudent) ...[
-                Row(
+              Row(
                 children: [
-                  Expanded(
-                    child: _buildActionButton(
-                      'Tạm dừng',
-                      RentsColors.accentOrange,
-                      Colors.white,
-                      cls['status'] == 'active' ? () {
-                        Navigator.pop(context);
-                        _updateClassStatus(cls['id'], 'cancelled');
-                      } : null,
+                  if (!isStudent) ...[
+                    Expanded(
+                      child: _buildActionButton(
+                        cls['status'] == 'cancelled' ? 'Mở lại' : 'Tạm dừng',
+                        cls['status'] == 'cancelled' ? RentsColors.accentGreen : RentsColors.accentOrange,
+                        Colors.white,
+                        (cls['status'] == 'active' || cls['status'] == 'cancelled') ? () {
+                          Navigator.pop(context);
+                          _updateClassStatus(cls['id'], cls['status'] == 'cancelled' ? 'active' : 'cancelled');
+                        } : null,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 12),
+                  ],
                   Expanded(
                     child: _buildActionButton(
-                      'Mở lại',
-                      RentsColors.accentGreen,
+                      'Nhắn tin',
+                      RentsColors.primaryBlue,
                       Colors.white,
-                      cls['status'] == 'cancelled' ? () {
+                      () {
                         Navigator.pop(context);
-                        _updateClassStatus(cls['id'], 'active');
-                      } : null,
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ClassChatScreen(
+                              classId: cls['id'],
+                              className: cls['class_name'] ?? 'Lớp học',
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -2243,7 +2253,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                     ),
                 ],
               ),
-              ],
             ],
           ),
         );

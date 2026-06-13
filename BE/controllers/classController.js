@@ -336,3 +336,111 @@ exports.deleteClass = async (req, res) => {
     res.status(500).json({ message: 'Server Error' });
   }
 };
+
+// ─── Helper: check if user has access to class messages ───────────────────
+async function _canAccessClassMessages(userId, userRole, classId) {
+  // Admin and staff always have access
+  if (userRole === 'admin' || userRole === 'staff') return true;
+
+  // Teacher: must be the instructor of this class
+  if (userRole === 'teacher') {
+    const [rows] = await db.query(
+      `SELECT c.id FROM classes c
+       JOIN instructors i ON c.instructor_id = i.id
+       WHERE c.id = ? AND i.user_id = ?`,
+      [classId, userId]
+    );
+    return rows.length > 0;
+  }
+
+  // Student: must be enrolled (active) in this class
+  if (userRole === 'student') {
+    const [rows] = await db.query(
+      `SELECT ce.id FROM class_enrollments ce
+       JOIN students s ON ce.student_id = s.id
+       WHERE ce.class_id = ? AND s.user_id = ? AND ce.status != 'dropped'`,
+      [classId, userId]
+    );
+    return rows.length > 0;
+  }
+
+  return false;
+}
+
+exports.getClassMessages = async (req, res) => {
+  try {
+    const classId = req.params.id;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const hasAccess = await _canAccessClassMessages(userId, userRole, classId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Bạn không có quyền xem tin nhắn lớp này.' });
+    }
+
+    const [messages] = await db.query(`
+      SELECT 
+        m.id,
+        m.class_id,
+        m.sender_id,
+        m.message,
+        m.created_at,
+        u.full_name as sender_name,
+        u.avatar_image as sender_avatar,
+        u.role as sender_role
+      FROM class_messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.class_id = ?
+      ORDER BY m.created_at ASC
+    `, [classId]);
+
+    res.json(messages);
+  } catch (err) {
+    console.error('Error fetching messages:', err);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+exports.sendClassMessage = async (req, res) => {
+  try {
+    const classId = req.params.id;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const hasAccess = await _canAccessClassMessages(userId, userRole, classId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Bạn không có quyền nhắn tin trong lớp này.' });
+    }
+
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Tin nhắn không được để trống.' });
+    }
+
+    const [result] = await db.query(
+      'INSERT INTO class_messages (class_id, sender_id, message) VALUES (?, ?, ?)',
+      [classId, userId, message.trim()]
+    );
+
+    // Trả về tin nhắn vừa lưu kèm thông tin người gửi
+    const [newMessages] = await db.query(`
+      SELECT 
+        m.id,
+        m.class_id,
+        m.sender_id,
+        m.message,
+        m.created_at,
+        u.full_name as sender_name,
+        u.avatar_image as sender_avatar,
+        u.role as sender_role
+      FROM class_messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.id = ?
+    `, [result.insertId]);
+
+    res.status(201).json(newMessages[0]);
+  } catch (err) {
+    console.error('Error sending message:', err);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};

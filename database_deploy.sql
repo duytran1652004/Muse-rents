@@ -246,6 +246,21 @@ INSERT INTO `notifications` (`id`, `user_id`, `type`, `title`, `message`, `is_re
 (49, NULL, 'booking', 'Lịch tập mới', 'Một lịch tập vừa được chuyển sang trạng thái: Hoàn thành.', 1, '2026-05-29 07:31:04', 15),
 (55, NULL, 'class', 'Cập nhật trạng thái', 'Lớp học KHÓA HỌC DJ TRUNG CẤP đã được đổi trạng thái thành Đang mở.', 0, '2026-06-09 04:31:14', 6);
 
+-- --------------------------------------------------------
+-- Cấu trúc bảng cho bảng `class_messages`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `class_messages` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `class_id` int(11) NOT NULL,
+  `sender_id` int(11) NOT NULL,
+  `message` text NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  KEY `class_id` (`class_id`),
+  KEY `sender_id` (`sender_id`),
+  CONSTRAINT `class_messages_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `class_messages_ibfk_2` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 COMMIT;
 
