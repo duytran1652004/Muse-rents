@@ -778,7 +778,9 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                         ),
                       Flexible(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: _isImageMessage(message) 
+                              ? EdgeInsets.only(bottom: (message['message']?.toString() ?? '').isNotEmpty ? 10 : 0)
+                              : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
                             color: isMe ? RentsColors.primaryBlue : Colors.white,
                             borderRadius: BorderRadius.only(
@@ -795,21 +797,34 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
                               ),
                             ],
                           ),
-                          child: Column(
-                            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                            children: [
-                              if (message['file_url'] != null || message['file_name'] != null)
-                                _buildFileAttachment(message, isMe),
-                              if ((message['message']?.toString() ?? '').isNotEmpty)
-                                Text(
-                                  message['message'] ?? '',
-                                  style: TextStyle(
-                                    color: isMe ? Colors.white : RentsColors.black,
-                                    fontSize: 15,
-                                    height: 1.4,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(18),
+                              topRight: const Radius.circular(18),
+                              bottomLeft: Radius.circular(isMe ? 18 : 4),
+                              bottomRight: Radius.circular(isMe ? 4 : 18),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                              children: [
+                                if (message['file_url'] != null || message['file_name'] != null)
+                                  _buildFileAttachment(message, isMe),
+                                if ((message['message']?.toString() ?? '').isNotEmpty)
+                                  Padding(
+                                    padding: _isImageMessage(message)
+                                        ? const EdgeInsets.symmetric(horizontal: 14)
+                                        : EdgeInsets.zero,
+                                    child: Text(
+                                      message['message'] ?? '',
+                                      style: TextStyle(
+                                        color: isMe ? Colors.white : RentsColors.black,
+                                        fontSize: 15,
+                                        height: 1.4,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -951,19 +966,28 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
     );
   }
 
+  bool _isImageMessage(dynamic message) {
+    final fileUrl = message['file_url'];
+    final fileType = message['file_type'] ?? 'file';
+    if (fileUrl == null) return false;
+    
+    bool isImage = fileType == 'image';
+    if (!isImage) {
+      final ext = fileUrl.toString().toLowerCase();
+      if (ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png') || ext.endsWith('.gif') || ext.endsWith('.webp')) {
+        isImage = true;
+      }
+    }
+    return isImage;
+  }
+
   Widget _buildFileAttachment(dynamic message, bool isMe) {
     final fileUrl = message['file_url'];
     final fileName = message['file_name'] ?? 'Tập tin đính kèm';
     final fileType = message['file_type'] ?? 'file';
     final isLocal = message['is_local_file'] == true;
 
-    bool isImage = fileType == 'image';
-    if (!isImage && fileUrl != null) {
-      final ext = fileUrl.toString().toLowerCase();
-      if (ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png') || ext.endsWith('.gif') || ext.endsWith('.webp')) {
-        isImage = true;
-      }
-    }
+    final isImage = _isImageMessage(message);
 
     if (isImage && fileUrl != null) {
       return GestureDetector(
@@ -972,7 +996,6 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
           margin: EdgeInsets.only(bottom: (message['message']?.toString() ?? '').isNotEmpty ? 8 : 0),
           constraints: const BoxConstraints(maxHeight: 200),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
             image: DecorationImage(
               image: isLocal ? FileImage(File(fileUrl)) : NetworkImage(ApiService.getImageUrl(fileUrl)) as ImageProvider,
               fit: BoxFit.cover,
