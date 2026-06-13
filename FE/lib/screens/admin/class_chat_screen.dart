@@ -466,7 +466,10 @@ class _ClassChatScreenState extends State<ClassChatScreen> {
       if (fileToSend != null) {
         response = await ApiService.postMultipart(
           '/classes/${widget.classId}/messages',
-          {'message': text},
+          {
+            'message': text,
+            'file_type': fileType ?? 'file',
+          },
           filePath: fileToSend.path,
           fileField: 'file',
         );

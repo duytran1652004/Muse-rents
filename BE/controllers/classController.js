@@ -442,17 +442,19 @@ exports.sendClassMessage = async (req, res) => {
 
     let fileUrl = null;
     let fileName = null;
-    let fileType = null;
+    let fileType = req.body.file_type || null;
     if (req.file) {
       fileUrl = `/uploads/${req.file.filename}`;
       fileName = req.file.originalname;
       const mime = req.file.mimetype;
-      if (mime.startsWith('image/')) fileType = 'image';
-      else if (mime.includes('pdf')) fileType = 'pdf';
-      else if (mime.includes('word') || mime.includes('document')) fileType = 'word';
-      else if (mime.includes('excel') || mime.includes('sheet')) fileType = 'excel';
-      else if (mime.includes('powerpoint') || mime.includes('presentation')) fileType = 'ppt';
-      else fileType = 'file';
+      if (!fileType) {
+        if (mime.startsWith('image/')) fileType = 'image';
+        else if (mime.includes('pdf')) fileType = 'pdf';
+        else if (mime.includes('word') || mime.includes('document')) fileType = 'word';
+        else if (mime.includes('excel') || mime.includes('sheet')) fileType = 'excel';
+        else if (mime.includes('powerpoint') || mime.includes('presentation')) fileType = 'ppt';
+        else fileType = 'file';
+      }
     }
 
     const [result] = await db.query(
