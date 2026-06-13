@@ -4,6 +4,7 @@ import '../../theme/rents_colors.dart';
 import '../../services/api_service.dart';
 import '../../utils/booking_date_utils.dart';
 import '../../utils/globals.dart';
+import 'class_chat_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -185,6 +186,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return _buildBookingNotifCard(notif);
     }
     if (notif['class_info'] != null) {
+      if (notif['title'] == 'Tin nhắn mới') {
+        return _buildChatNotifCard(notif);
+      }
       return _buildClassNotifCard(notif);
     }
     if (notif['type'] == 'payment') {
@@ -681,6 +685,142 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(color: RentsColors.accentRed, borderRadius: BorderRadius.circular(20)),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) => _deleteNotification(notif['id']),
+      child: card,
+    );
+  }
+
+  Widget _buildChatNotifCard(Map<String, dynamic> notif) {
+    final cls = notif['class_info'];
+    final isRead = notif['is_read'] == true || notif['is_read'] == 1;
+
+    final card = GestureDetector(
+      onTap: () {
+        if (_isSelectionMode) {
+          setState(() {
+            if (_selectedIds.contains(notif['id'])) _selectedIds.remove(notif['id']);
+            else _selectedIds.add(notif['id']);
+          });
+        } else {
+          setState(() {
+            notif['is_read'] = 1;
+          });
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ClassChatScreen(
+                classId: cls['id'],
+                className: cls['class_name'] ?? 'Lớp học',
+              ),
+            ),
+          );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isRead ? Colors.white : RentsColors.primaryBlue.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isRead ? Colors.transparent : RentsColors.primaryBlue.withValues(alpha: 0.2)),
+          boxShadow: RentsColors.softCardShadow,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: RentsColors.bgLightBlue,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: cls['course_image_url'] != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        ApiService.getImageUrl(cls['course_image_url']),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.forum, color: RentsColors.primaryBlue),
+                      ),
+                    )
+                  : const Icon(Icons.forum, color: RentsColors.primaryBlue),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.forum, size: 14, color: RentsColors.primaryBlue),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          cls['class_name'] ?? 'Lớp học',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: RentsColors.primaryBlue),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(_formatDate(notif['created_at']), style: const TextStyle(color: RentsColors.grayDark, fontSize: 11, fontWeight: FontWeight.bold)),
+                      if (!isRead) ...[
+                        const SizedBox(width: 6),
+                        Container(width: 8, height: 8, decoration: const BoxDecoration(color: RentsColors.primaryBlue, shape: BoxShape.circle)),
+                      ]
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    notif['message'] ?? '',
+                    style: TextStyle(
+                      color: isRead ? RentsColors.grayDark : RentsColors.black,
+                      fontSize: 14,
+                      fontWeight: isRead ? FontWeight.normal : FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (_isSelectionMode) {
+      final isSelected = _selectedIds.contains(notif['id']);
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            Checkbox(
+              value: isSelected,
+              activeColor: RentsColors.primaryBlue,
+              onChanged: (val) {
+                setState(() {
+                  if (val == true) _selectedIds.add(notif['id']);
+                  else _selectedIds.remove(notif['id']);
+                });
+              },
+            ),
+            Expanded(child: card),
+          ],
+        ),
+      );
+    }
+
+    return Dismissible(
+      key: ValueKey(notif['id']),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(color: RentsColors.accentRed, borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       onDismissed: (_) => _deleteNotification(notif['id']),
