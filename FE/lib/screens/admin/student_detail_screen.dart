@@ -217,7 +217,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                 onPressed: _editStudent,
               ),
             ] : null,
-            bottom: isAdminOrStaff ? TabBar(
+            bottom: TabBar(
               controller: _tabController,
               labelColor: RentsColors.primaryBlue,
               unselectedLabelColor: RentsColors.grayDark,
@@ -231,14 +231,12 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                 Tab(text: 'HỒ SƠ'),
                 Tab(text: 'LỊCH SỬ HỌC'),
               ],
-            ) : null,
+            ),
           ),
-          body: isAdminOrStaff 
-            ? TabBarView(
-                controller: _tabController,
-                children: [_buildProfileTab(isAdminOrStaff), _buildBookingsTab()],
-              )
-            : _buildProfileTab(isAdminOrStaff), // Giáo viên chỉ xem hồ sơ
+          body: TabBarView(
+            controller: _tabController,
+            children: [_buildProfileTab(isAdminOrStaff), _buildBookingsTab(isAdminOrStaff)],
+          ),
         );
       },
     );
@@ -349,12 +347,12 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
           ),
         ]),
         const SizedBox(height: 16),
-        if (isAdminOrStaff) _buildCourseSection(),
+        _buildCourseSection(isAdminOrStaff),
       ],
     );
   }
 
-  Widget _buildCourseSection() {
+  Widget _buildCourseSection(bool isAdminOrStaff) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -379,13 +377,14 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline, color: RentsColors.primaryBlue, size: 22),
-                onPressed: _showAddEnrollmentSheet,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 8),
+              if (isAdminOrStaff)
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline, color: RentsColors.primaryBlue, size: 22),
+                  onPressed: _showAddEnrollmentSheet,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              if (isAdminOrStaff) const SizedBox(width: 8),
               Text(
                 '${_enrollments.length} khóa',
                 style: const TextStyle(color: RentsColors.grayDark, fontSize: 13, fontWeight: FontWeight.w600),
@@ -408,14 +407,14 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
               Icons.school_outlined,
             )
           else ...[
-            ..._enrollments.map((enrollment) => _buildEnrollmentCard(enrollment)),
+            ..._enrollments.map((enrollment) => _buildEnrollmentCard(enrollment, isAdminOrStaff)),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildEnrollmentCard(Map<String, dynamic> enrollment) {
+  Widget _buildEnrollmentCard(Map<String, dynamic> enrollment, bool isAdminOrStaff) {
     final String status = enrollment['status'] ?? 'active';
     final int completed = enrollment['completed_sessions'] ?? 0;
     final int total = enrollment['total_sessions'] ?? 0;
@@ -494,7 +493,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
                     ],
                   ),
                 ),
-                if (statusText != 'Hoàn thành' && statusText != 'Đang học')
+                if (isAdminOrStaff && statusText != 'Hoàn thành' && statusText != 'Đang học')
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: RentsColors.accentRed, size: 20),
                     onPressed: () => _deleteEnrollment(enrollment['id']),
@@ -641,7 +640,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
     );
   }
 
-  Widget _buildBookingsTab() {
+  Widget _buildBookingsTab(bool isAdminOrStaff) {
     if (_isLoadingBookings || _isLoadingEnrollments) {
       return const Center(
         child: CircularProgressIndicator(color: RentsColors.primaryBlue),
@@ -658,7 +657,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
         if (_enrollments.isNotEmpty) ...[
           const Text('Khóa học tham gia', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
           const SizedBox(height: 12),
-          ..._enrollments.map((e) => _buildEnrollmentCard(e)),
+          ..._enrollments.map((e) => _buildEnrollmentCard(e, isAdminOrStaff)),
           const SizedBox(height: 24),
         ],
         if (_bookings.isNotEmpty) ...[
