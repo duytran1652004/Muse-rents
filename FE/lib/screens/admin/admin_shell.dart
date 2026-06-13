@@ -138,6 +138,7 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
         } else if (isStudent) {
           if (_selectedIndex == 0) currentScreen = _screens[5]; // StudentDashboardScreen
           else if (_selectedIndex == 1) currentScreen = _screens[3]; // CourseManagementScreen
+          else if (_selectedIndex == 2) currentScreen = _screens[2]; // StudentManagementScreen (Giáo viên)
           else currentScreen = _screens[4]; // SettingsScreen
         } else {
           currentScreen = _screens[_selectedIndex];
@@ -180,7 +181,8 @@ class _AdminShellState extends State<AdminShell> with TickerProviderStateMixin {
               ] : isStudent ? [
                 _buildNavItem(0, Icons.school_rounded, Icons.school_outlined, 'Khóa của tôi'),
                 _buildNavItem(1, Icons.library_books_rounded, Icons.library_books_outlined, 'Tham khảo'),
-                _buildNavItem(2, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
+                _buildNavItem(2, Icons.people_rounded, Icons.people_outline_rounded, 'Giáo viên'),
+                _buildNavItem(3, Icons.settings_rounded, Icons.settings_outlined, 'Cài đặt'),
               ] : [
                 _buildNavItem(0, Icons.calendar_month_rounded, Icons.calendar_month, 'Lịch tập'),
                 _buildNavItem(1, Icons.meeting_room_rounded, Icons.meeting_room_outlined, 'Phòng'),

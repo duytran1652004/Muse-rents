@@ -154,7 +154,9 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
     return ValueListenableBuilder<String>(
       valueListenable: globalRole,
       builder: (context, role, child) {
-        final isAdminOrStaff = role == 'admin' || role == 'staff';
+        final isStudent = role == 'student';
+        final canViewDetails = !isStudent;
+        final canEdit = role == 'admin' || role == 'staff';
         
         return Scaffold(
           backgroundColor: RentsColors.bgLightBlue,
@@ -171,13 +173,13 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
             backgroundColor: Colors.white,
             elevation: 0,
             iconTheme: const IconThemeData(color: RentsColors.black),
-            actions: isAdminOrStaff ? [
+            actions: canEdit ? [
               IconButton(
                 icon: const Icon(Icons.edit_outlined, color: RentsColors.primaryBlue),
                 onPressed: _editInstructor,
               ),
             ] : null,
-            bottom: isAdminOrStaff ? TabBar(
+            bottom: canViewDetails ? TabBar(
               controller: _tabController,
               labelColor: RentsColors.primaryBlue,
               unselectedLabelColor: RentsColors.grayDark,
@@ -193,18 +195,18 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
               ],
             ) : null,
           ),
-          body: isAdminOrStaff 
+          body: canViewDetails 
             ? TabBarView(
                 controller: _tabController,
-                children: [_buildProfileTab(isAdminOrStaff), _buildHistoryTab()],
+                children: [_buildProfileTab(canViewDetails, canEdit), _buildHistoryTab()],
               )
-            : _buildProfileTab(isAdminOrStaff),
+            : _buildProfileTab(canViewDetails, canEdit),
         );
       },
     );
   }
 
-  Widget _buildProfileTab(bool isAdminOrStaff) {
+  Widget _buildProfileTab(bool canViewDetails, bool canEdit) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -252,7 +254,7 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
                   ),
                   const SizedBox(height: 6),
                   GestureDetector(
-                    onTap: isAdminOrStaff ? _showStatusPicker : null,
+                    onTap: canEdit ? _showStatusPicker : null,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
@@ -271,8 +273,8 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
                               letterSpacing: 0.5,
                             ),
                           ),
-                          if (isAdminOrStaff) const SizedBox(width: 4),
-                          if (isAdminOrStaff) Icon(Icons.edit_rounded, size: 12, color: _statusColor(_instructorData['status'])),
+                          if (canEdit) const SizedBox(width: 4),
+                          if (canEdit) Icon(Icons.edit_rounded, size: 12, color: _statusColor(_instructorData['status'])),
                         ],
                       ),
                     ),
@@ -309,7 +311,7 @@ class _InstructorDetailScreenState extends State<InstructorDetailScreen> with Si
           ),
         ]),
         const SizedBox(height: 16),
-        if (isAdminOrStaff) _buildActiveClassesSection(),
+        if (canViewDetails) _buildActiveClassesSection(),
       ],
     );
   }

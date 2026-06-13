@@ -156,24 +156,27 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
       valueListenable: globalRole,
       builder: (context, role, child) {
         final isAdminOrStaff = role == 'admin' || role == 'staff';
+        final isStudent = role == 'student';
         return Scaffold(
           backgroundColor: RentsColors.bgLightBlue,
-          appBar: _buildAppBar(isAdminOrStaff),
+          appBar: _buildAppBar(isAdminOrStaff, isStudent),
           body: Column(
             children: [
-              _buildSearchAndFilter(isStudentTab), // Luôn hiển thị filter đúng tab
+              _buildSearchAndFilter(isStudent ? false : isStudentTab),
               Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildStudentList(),
-                    _buildInstructorList(),
-                  ],
-                ),
+                child: isStudent 
+                  ? _buildInstructorList()
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildStudentList(),
+                        _buildInstructorList(),
+                      ],
+                    ),
               ),
             ],
           ),
-          floatingActionButton: (isAdminOrStaff && isStudentTab) ? FloatingActionButton(
+          floatingActionButton: (isAdminOrStaff && isStudentTab && !isStudent) ? FloatingActionButton(
             onPressed: () => _openEditStudent(null),
             backgroundColor: RentsColors.primaryBlue,
             child: const Icon(Icons.person_add, color: Colors.white),
@@ -183,26 +186,26 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> with 
     );
   }
 
-  PreferredSizeWidget _buildAppBar(bool isAdminOrStaff) {
+  PreferredSizeWidget _buildAppBar(bool isAdminOrStaff, bool isStudent) {
     return AppBar(
       centerTitle: true,
       backgroundColor: RentsColors.bgLightBlue,
       elevation: 0,
       leading: const NotificationButton(),
       title: Text(
-        isAdminOrStaff ? 'NHÂN SỰ & HỌC VIÊN' : 'HỌC VIÊN',
+        isStudent ? 'GIÁO VIÊN' : (isAdminOrStaff ? 'NHÂN SỰ & HỌC VIÊN' : 'HỌC VIÊN'),
         style: const TextStyle(color: RentsColors.black, fontWeight: FontWeight.w800, fontSize: 20),
       ),
       actions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: RentsColors.primaryBlue),
           onPressed: () {
-            if (_tabController.index == 0 || !isAdminOrStaff) _fetchStudents();
-            else _fetchInstructors();
+            if (isStudent || (_tabController.index == 1 && isAdminOrStaff)) _fetchInstructors();
+            else _fetchStudents();
           },
         ),
       ],
-      bottom: TabBar(
+      bottom: isStudent ? null : TabBar(
         controller: _tabController,
         labelColor: RentsColors.primaryBlue,
         unselectedLabelColor: RentsColors.grayDark,
